@@ -1,0 +1,9 @@
+export type Actor = { user_id: string; username: string; display_name: string; account_type: 'sales' | 'strategic'; sales_tier?: string; region_code?: string; capacity_limit?: number }
+export type Lead = { lead_id: string; company_id: string; company_name: string; required_sales_tier: string; pool_region_code?: string; allocation_status: string; pipeline_stage: string; sla_due_at?: string; current_owner_user_id?: string; version: number }
+export type LeadDetail = Lead & { last_activity_at?: string; current_assignment_started_at?: string; first_touch_at?: string; assignment_id?: string; assignee_user_id?: string; assigned_at?: string; assignment_type?: string; assignment_status?: string }
+export type Company = { company_id: string; company_name: string; legal_name?: string; website?: string; city?: string; industry_code?: string; company_intro?: string; employee_count?: number; version: number }
+export type Contact = { contact_id: string; company_id: string; full_name: string; title?: string; department?: string; relationship_role?: string; priority?: string; primary_email?: string; normalized_email?: string; email_status?: string; phone?: string; linkedin_url?: string; version: number }
+export type Candidate = { candidate_id: string; company_name: string; website?: string; region_code?: string; country_code?: string; processing_status: string; assessments_stale: boolean; version: number; icp_score?: number; icp_grade?: string; effective_tier?: string; required_sales_tier?: string }
+export type UserSummary = { user_id: string; username: string; display_name: string; email?: string; account_type: 'sales' | 'strategic'; status: 'active' | 'disabled' | 'departed'; sales_tier?: string; region_code?: string; capacity_limit?: number; active_assignment_count: number; version: number }
+export type PageMeta = { next_cursor?: string | null; has_more: boolean }
+export type UserListResponse = { request_id: string; data: UserSummary[]; page: PageMeta }

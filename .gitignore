@@ -1,0 +1,104 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local-only dev launcher (contains machine-specific proxy)
+start.local.sh
+
+# Dependencies
+node_modules/
+**/node_modules/
+.venv/
+.venv-*/
+**/.venv/
+**/.venv-*/
+__pycache__/
+**/__pycache__/
+
+# Build and cache output
+dist/
+.vite/
+.dbg/
+**/.dbg/
+.omx/
+.playwright-cli/
+.playwright-mcp/
+output/
+.next/
+**/.next/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated runtime data
+邮件自动发送_Windows/邮件自动发�?demo/emails/
+邮件自动发送_Windows/邮件自动发�?demo/files/
+邮件自动发送_Windows/邮件自动发�?demo/data/whisper-models/
+邮件自动发送_Windows/邮件自动发�?demo/tools/ffmpeg/
+
+# Heavy binary/model artifacts
+*.bin
+*.pt
+*.onnx
+*.ckpt
+*.safetensors
+*.dll
+*.lib
+*.exe
+*.zip
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local UI verification screenshots
+/customer-analysis-desktop-final.png
+/p0-04-sales-menu.png
+/p0-04-strategic-menu.png
+/p0-05-my-leads-filters.png
+
+# Runtime/cache data that should stay local
+meeting-analysis-service/.env
+meeting-analysis-service/.venv/
+meeting-analysis-service/temp/
+meeting-analysis-service/.pytest_cache/
+meeting-analysis-service/.trae/
+**/emails/
+**/files/
+**/data/whisper-models/
+**/tools/ffmpeg/
+**/data/meeting-audios/
+**/data/torch-home/
+**/data/hf-home/
+**/data/mplconfig/
+**/data/*history*.json
+**/data/*jobs*.json
+**/manual_upload_inbox/imported_archive/
+clue_agent/data/database/*
+!clue_agent/data/database/.gitkeep
+!clue_agent/data/database/manual_upload_inbox/
+clue_agent/data/database/manual_upload_inbox/*
+!clue_agent/data/database/manual_upload_inbox/.gitkeep
+!clue_agent/data/database/manual_upload_inbox/imported_archive/
+clue_agent/data/database/manual_upload_inbox/imported_archive/*
+!clue_agent/data/database/manual_upload_inbox/imported_archive/.gitkeep
+
+# Local binary/runtime artifacts
+*.pth
+*.webm
+*.wav
+*.db
+
+# Claude Code — local assistant config only, never in repo
+CLAUDE.md
+.claude/
+
+# Local email attachment storage
+.local-data/

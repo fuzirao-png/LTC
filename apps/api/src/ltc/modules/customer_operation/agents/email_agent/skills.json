@@ -1,0 +1,35 @@
+{
+  "skills": [
+    {
+      "directory": "email-generate",
+      "registry_name": "email_generate",
+      "operation": "generate",
+      "order": 10,
+      "entrypoint": "scripts/generate.py:EmailGenerateSkill"
+    },
+    {
+      "directory": "email-edit",
+      "registry_name": "email_edit",
+      "operations": [
+        "optimize",
+        "rewrite"
+      ],
+      "order": 20,
+      "entrypoint": "scripts/edit.py:EmailEditSkill"
+    },
+    {
+      "directory": "email-translate",
+      "registry_name": "email_translate",
+      "operation": "translate",
+      "order": 30,
+      "entrypoint": "scripts/translate.py:EmailTranslateSkill"
+    },
+    {
+      "directory": "email-analysis",
+      "registry_name": "email_analysis",
+      "operation": "analyze",
+      "order": 40,
+      "entrypoint": "scripts/analyze.py:EmailAnalysisSkill"
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+name: ${LTC_COMPOSE_PROJECT_NAME:-ltc-dev}
+
+services:
+  weknora-postgres:
+    image: paradedb/paradedb:v0.22.2-pg17
+    environment:
+      POSTGRES_USER: ${WEKNORA_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${WEKNORA_DB_PASSWORD:-change-weknora-db-password}
+      POSTGRES_DB: ${WEKNORA_DB_NAME:-WeKnora}
+    volumes:
+      - weknora_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${WEKNORA_DB_USER:-postgres} -d ${WEKNORA_DB_NAME:-WeKnora}"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 30s
+    restart: unless-stopped
+
+  weknora-redis:
+    image: redis:7.0-alpine
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${WEKNORA_REDIS_PASSWORD:-change-weknora-redis-password}"]
+    volumes:
+      - weknora_redis_data:/data
+    restart: unless-stopped
+
+  weknora-docreader:
+    image: wechatopenai/weknora-docreader:${WEKNORA_VERSION:-v0.7.2}
+    expose:
+      - "50051"
+    volumes:
+      - weknora_docreader_tmp:/tmp/docreader
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      DOCREADER_IMAGE_OUTPUT_DIR: /tmp/docreader
+      MAX_FILE_SIZE_MB: ${WEKNORA_MAX_FILE_SIZE_MB:-50}
+      DOCREADER_GRPC_PORT: 50051
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=localhost:50051"]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 60s
+    restart: unless-stopped
+
+  weknora-app:
+    image: wechatopenai/weknora-app:${WEKNORA_VERSION:-v0.7.2}
+    ports:
+      - "${WEKNORA_APP_PUBLISHED_PORT:-18081}:8080"
+    volumes:
+      - weknora_files:/data/files
+      - weknora_docreader_tmp:/tmp/docreader:ro
+      - ${WEKNORA_CONFIG_FILE:-./infra/weknora/config/config.yaml}:/app/config/config.yaml:ro
+    environment:
+      LOG_LEVEL: ${WEKNORA_LOG_LEVEL:-info}
+      GIN_MODE: ${WEKNORA_GIN_MODE:-release}
+      TZ: ${TZ:-Asia/Shanghai}
+      AUTO_MIGRATE: ${WEKNORA_AUTO_MIGRATE:-true}
+      DB_DRIVER: postgres
+      DB_HOST: weknora-postgres
+      DB_PORT: 5432
+      DB_USER: ${WEKNORA_DB_USER:-postgres}
+      DB_PASSWORD: ${WEKNORA_DB_PASSWORD:-change-weknora-db-password}
+      DB_NAME: ${WEKNORA_DB_NAME:-WeKnora}
+      RETRIEVE_DRIVER: ${WEKNORA_RETRIEVE_DRIVER:-postgres}
+      DOCREADER_ADDR: weknora-docreader:50051
+      DOCREADER_TRANSPORT: grpc
+      STORAGE_TYPE: ${WEKNORA_STORAGE_TYPE:-local}
+      LOCAL_STORAGE_BASE_DIR: /data/files
+      STREAM_MANAGER_TYPE: redis
+      REDIS_ADDR: weknora-redis:6379
+      REDIS_PASSWORD: ${WEKNORA_REDIS_PASSWORD:-change-weknora-redis-password}
+      REDIS_DB: ${WEKNORA_REDIS_DB:-0}
+      REDIS_PREFIX: ${WEKNORA_REDIS_PREFIX:-weknora:}
+      JWT_SECRET: ${WEKNORA_JWT_SECRET:-replace-with-a-long-random-jwt-secret}
+      SYSTEM_AES_KEY: ${WEKNORA_SYSTEM_AES_KEY:-change-this-32-byte-aes-secret!!}
+      DISABLE_REGISTRATION: ${WEKNORA_DISABLE_REGISTRATION:-false}
+      WEKNORA_TENANT_AUTO_CREATE_API_KEY: ${WEKNORA_TENANT_AUTO_CREATE_API_KEY:-false}
+      WEKNORA_AUTH_DEFAULT_TENANT_MODE: create_personal
+      MAX_FILE_SIZE_MB: ${WEKNORA_MAX_FILE_SIZE_MB:-50}
+    depends_on:
+      weknora-postgres:
+        condition: service_healthy
+      weknora-redis:
+        condition: service_started
+      weknora-docreader:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 6
+      start_period: 60s
+    restart: unless-stopped
+
+  weknora-frontend:
+    image: wechatopenai/weknora-ui:${WEKNORA_VERSION:-v0.7.2}
+    ports:
+      - "${WEKNORA_FRONTEND_PUBLISHED_PORT:-18080}:80"
+    environment:
+      MAX_FILE_SIZE_MB: ${WEKNORA_MAX_FILE_SIZE_MB:-50}
+      APP_HOST: weknora-app
+      APP_PORT: 8080
+      APP_SCHEME: http
+    depends_on:
+      weknora-app:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  weknora_postgres_data:
+  weknora_redis_data:
+  weknora_docreader_tmp:
+  weknora_files:

@@ -1,0 +1,248 @@
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.130.0
+    user: "0:0"
+    environment:
+      LTC_TRACE_DECISION_WAIT: ${LTC_TRACE_DECISION_WAIT:-20m}
+      LTC_TRACE_SLOW_MS: ${LTC_TRACE_SLOW_MS:-3000}
+    volumes:
+      - ./infra/observability/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - ltc_telemetry:/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${LTC_DB_NAME:-ltc}
+      POSTGRES_USER: ${LTC_DB_USER:-ltc}
+      POSTGRES_PASSWORD: ${LTC_DB_PASSWORD:-ltc_local_change_me}
+    ports:
+      - "${LTC_DB_PUBLISHED_PORT:-55432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LTC_DB_USER:-ltc} -d ${LTC_DB_NAME:-ltc}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - ltc_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  database-init:
+    image: postgres:16-alpine
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LTC_DB_HOST: postgres
+      LTC_DB_PORT: 5432
+      LTC_DB_NAME: ${LTC_DB_NAME:-ltc}
+      LTC_DB_USER: ${LTC_DB_USER:-ltc}
+      LTC_DB_PASSWORD: ${LTC_DB_PASSWORD:-ltc_local_change_me}
+    volumes:
+      - ./db:/workspace/db:ro
+      - ./scripts/init_database_container.sh:/workspace/scripts/init_database_container.sh:ro
+    entrypoint: ["/workspace/scripts/init_database_container.sh"]
+
+  api:
+    build:
+      context: ./apps/api
+      target: runtime
+    environment:
+      LTC_ENV: ${LTC_ENV:-docker}
+      LTC_API_HOST: 0.0.0.0
+      LTC_API_PORT: 8000
+      LTC_REDIS_URL: ${LTC_REDIS_URL:-redis://redis:6379/0}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      LTC_TEMP_DIR: /tmp/ltc/meetings
+      LTC_DB_HOST: postgres
+      LTC_DB_PORT: 5432
+      LTC_DB_NAME: ${LTC_DB_NAME:-ltc}
+      LTC_DB_USER: ${LTC_DB_USER:-ltc}
+      LTC_DB_PASSWORD: ${LTC_DB_PASSWORD:-ltc_local_change_me}
+      LTC_DB_SSLMODE: disable
+      DATABASE_URL: postgresql://${LTC_DB_USER:-ltc}:${LTC_DB_PASSWORD:-ltc_local_change_me}@postgres:5432/${LTC_DB_NAME:-ltc}?sslmode=disable
+      EXA_API_KEY: ${EXA_API_KEY:-}
+      APIFY_API_KEY: ${APIFY_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.aicodemirror.ai/api/codex/backend-api/codex/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-terra}
+      LEAD_ANALYSIS_LLM_API_KEY: ${LEAD_ANALYSIS_LLM_API_KEY:-}
+      LEAD_ANALYSIS_LLM_BASE_URL: ${LEAD_ANALYSIS_LLM_BASE_URL:-https://api.aicodemirror.ai/api/codex/backend-api/codex/v1}
+      LEAD_ANALYSIS_LLM_MODEL: ${LEAD_ANALYSIS_LLM_MODEL:-gpt-5.6-terra}
+      LEAD_DISCOVERY_ROUTER_MODEL: ${LEAD_DISCOVERY_ROUTER_MODEL:-gpt-5.6-terra}
+      WEKNORA_BASE_URL: ${LTC_WEKNORA_BASE_URL:-}
+      WEKNORA_API_KEY: ${LTC_WEKNORA_API_KEY:-}
+      WEKNORA_KNOWLEDGE_BASE_IDS: ${LTC_WEKNORA_KNOWLEDGE_BASE_IDS:-}
+      WEKNORA_TIMEOUT_SECONDS: ${LTC_WEKNORA_TIMEOUT_SECONDS:-20}
+      LTC_LLM_API_KEY: ${LTC_LLM_API_KEY:-}
+      LTC_LLM_BASE_URL: ${LTC_LLM_BASE_URL:-https://api.aicodemirror.ai/api/codex/backend-api/codex/v1}
+      LTC_LLM_MODEL: ${LTC_LLM_MODEL:-gpt-5.5}
+      GPT_RESEARCHER_TIMEOUT_SECONDS: ${GPT_RESEARCHER_TIMEOUT_SECONDS:-30}
+      LTC_API_INTERNAL_URL: ${LTC_API_INTERNAL_URL:-http://api:8000/api/v1}
+      LTC_INTERNAL_WORKER_TOKEN: ${LTC_INTERNAL_WORKER_TOKEN:-ltc-local-worker-token-change-me}
+      # The API module owns the concrete search pipeline today. Keep local and
+      # current-phase deployments inline until the Worker use case is wired.
+      LTC_LEAD_SEARCH_EXECUTION_MODE: ${LTC_LEAD_SEARCH_EXECUTION_MODE:-inline}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-true}
+      MAIL_FROM: ${MAIL_FROM:-}
+      INBOUND_MAIL_ENABLED: ${INBOUND_MAIL_ENABLED:-false}
+      INBOUND_MAIL_HOST: ${INBOUND_MAIL_HOST:-}
+      INBOUND_MAIL_PORT: ${INBOUND_MAIL_PORT:-993}
+      INBOUND_MAIL_USERNAME: ${INBOUND_MAIL_USERNAME:-}
+      INBOUND_MAIL_PASSWORD: ${INBOUND_MAIL_PASSWORD:-}
+      INBOUND_MAIL_MAILBOX: ${INBOUND_MAIL_MAILBOX:-INBOX}
+      INBOUND_MAIL_POLL_SECONDS: ${INBOUND_MAIL_POLL_SECONDS:-60}
+      LTC_MAIL_CREDENTIAL_KEY: ${LTC_MAIL_CREDENTIAL_KEY:-}
+      LTC_MAIL_ATTACHMENT_DIR: ${LTC_MAIL_ATTACHMENT_DIR:-/app/data/email-attachments}
+      LTC_ASR_API_KEY: ${LTC_ASR_API_KEY:-}
+      LTC_ASR_BASE_URL: ${LTC_ASR_BASE_URL:-}
+      LTC_ASR_MODEL: ${LTC_ASR_MODEL:-whisper-1}
+      LTC_ASR_TIMEOUT_SECONDS: ${LTC_ASR_TIMEOUT_SECONDS:-600}
+      LTC_ASR_MAX_RETRIES: ${LTC_ASR_MAX_RETRIES:-4}
+      LTC_ASR_RETRY_BASE_DELAY_SECONDS: ${LTC_ASR_RETRY_BASE_DELAY_SECONDS:-5}
+      LTC_ASR_REQUEST_INTERVAL_SECONDS: ${LTC_ASR_REQUEST_INTERVAL_SECONDS:-2}
+      LTC_ASR_MAX_PARALLEL_REQUESTS: ${LTC_ASR_MAX_PARALLEL_REQUESTS:-4}
+      LTC_JWT_SECRET_KEY: ${LTC_JWT_SECRET_KEY:-ltc-local-development-secret-change-me}
+      LTC_JWT_ACCESS_TOKEN_TTL_MINUTES: ${LTC_JWT_ACCESS_TOKEN_TTL_MINUTES:-15}
+      LTC_REFRESH_SESSION_TTL_DAYS: ${LTC_REFRESH_SESSION_TTL_DAYS:-7}
+    volumes:
+      - ../data/lead_memory:/app/data/lead_memory
+      - ../data/email-attachments:/app/data/email-attachments
+      - ltc_meeting_media:/tmp/ltc/meetings
+    ports:
+      - "${LTC_API_PUBLISHED_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./apps/worker
+      target: runtime
+      additional_contexts:
+        ltc_api: ./apps/api
+    environment:
+      LTC_DB_HOST: postgres
+      LTC_DB_PORT: 5432
+      LTC_DB_NAME: ${LTC_DB_NAME:-ltc}
+      LTC_DB_USER: ${LTC_DB_USER:-ltc}
+      LTC_DB_PASSWORD: ${LTC_DB_PASSWORD:-ltc_local_change_me}
+      LTC_DB_SSLMODE: disable
+      LTC_WORKER_NAME: ${LTC_WORKER_NAME:-ltc-worker}
+      LTC_WORKER_QUEUE_NAMES: ${LTC_WORKER_QUEUE_NAMES:-crm,analysis,media}
+      LTC_MEDIA_JOB_CONCURRENCY: ${LTC_MEDIA_JOB_CONCURRENCY:-2}
+      LTC_AUDIO_CHUNK_SECONDS: ${LTC_AUDIO_CHUNK_SECONDS:-60}
+      LTC_ASR_API_KEY: ${LTC_ASR_API_KEY:-}
+      LTC_ASR_BASE_URL: ${LTC_ASR_BASE_URL:-}
+      LTC_ASR_MODEL: ${LTC_ASR_MODEL:-whisper-1}
+      LTC_ASR_PROXY_URL: ${LTC_ASR_PROXY_URL:-}
+      LTC_ASR_TIMEOUT_SECONDS: ${LTC_ASR_TIMEOUT_SECONDS:-600}
+      LTC_ASR_MAX_RETRIES: ${LTC_ASR_MAX_RETRIES:-4}
+      LTC_ASR_RETRY_BASE_DELAY_SECONDS: ${LTC_ASR_RETRY_BASE_DELAY_SECONDS:-5}
+      LTC_ASR_MAX_PARALLEL_REQUESTS: ${LTC_ASR_MAX_PARALLEL_REQUESTS:-4}
+      LTC_ASR_TARGET_LATENCY_SECONDS: ${LTC_ASR_TARGET_LATENCY_SECONDS:-2.0}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+
+      WEKNORA_BASE_URL: ${WEKNORA_BASE_URL:-}
+      WEKNORA_API_KEY: ${WEKNORA_API_KEY:-}
+      WEKNORA_KNOWLEDGE_BASE_IDS: ${WEKNORA_KNOWLEDGE_BASE_IDS:-}
+      EXA_API_KEY: ${EXA_API_KEY:-}
+
+      LTC_LLM_API_KEY: ${LTC_LLM_API_KEY:-}
+      LTC_LLM_BASE_URL: ${LTC_LLM_BASE_URL:-}
+      LTC_LLM_MODEL: ${LTC_LLM_MODEL:-}
+      GPT_RESEARCHER_TIMEOUT_SECONDS: ${GPT_RESEARCHER_TIMEOUT_SECONDS:-30}
+
+      LTC_API_INTERNAL_URL: ${LTC_API_INTERNAL_URL:-http://api:8000/api/v1}
+      LTC_INTERNAL_WORKER_TOKEN: ${LTC_INTERNAL_WORKER_TOKEN:-}
+    volumes:
+      - ltc_meeting_media:/tmp/ltc/meetings:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./apps/web
+      target: runtime
+      args:
+        NPM_REGISTRY: ${LTC_NPM_REGISTRY:-https://registry.npmjs.org}
+    ports:
+      - "${LTC_WEB_PUBLISHED_PORT:-5173}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  contract-test:
+    image: python:3.11-alpine
+    profiles: ["test"]
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:ro
+    command: ["python", "-m", "unittest", "discover", "-s", "tests/contract", "-v"]
+
+  api-test:
+    build:
+      context: ./apps/api
+      target: test
+    profiles: ["test"]
+
+  worker-test:
+    build:
+      context: ./apps/worker
+      target: test
+      additional_contexts:
+        ltc_api: ./apps/api
+    profiles: ["test"]
+
+  web-test:
+    build:
+      context: ./apps/web
+      target: test
+      args:
+        NPM_REGISTRY: ${LTC_NPM_REGISTRY:-https://registry.npmjs.org}
+    profiles: ["test"]
+
+  database-test:
+    build:
+      context: ./tests/integration
+      target: test
+    profiles: ["test"]
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  ltc_postgres_data:
+  ltc_meeting_media:
+  ltc_telemetry:

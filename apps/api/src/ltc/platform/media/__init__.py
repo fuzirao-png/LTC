@@ -1,0 +1,1 @@
+"""Media platform package placeholder."""

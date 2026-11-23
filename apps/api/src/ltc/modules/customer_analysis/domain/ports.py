@@ -1,0 +1,93 @@
+"""Ports owned by the Customer Analysis domain."""
+
+from __future__ import annotations
+
+from contextlib import contextmanager
+from datetime import datetime
+from typing import Any, Iterator, Protocol
+from uuid import UUID
+
+from ltc.modules.customer_analysis.domain.models import (
+    AnalysisContext,
+    AnalysisReport,
+    AnalysisRun,
+    AnalysisSuggestion,
+    CustomerProfile,
+    EngagementEvidence,
+    GeneratedReportContent,
+    MeddpiccDimension,
+)
+
+
+class CustomerAnalysisRepository(Protocol):
+    @contextmanager
+    def transaction(self) -> Iterator[Any]: ...
+    def get_profile(self, company_id: UUID) -> CustomerProfile | None: ...
+    def save_profile(self, profile: CustomerProfile, *, _conn: Any = None) -> None: ...
+    def list_meddpicc(self, company_id: UUID) -> list[MeddpiccDimension]: ...
+    def get_meddpicc_dimension(self, company_id: UUID, dimension_code: str) -> MeddpiccDimension | None: ...
+    def save_meddpicc_dimension(self, dimension: MeddpiccDimension, *, _conn: Any = None) -> None: ...
+    def get_run(self, run_id: UUID) -> AnalysisRun | None: ...
+    def get_run_by_job_id(self, job_id: UUID) -> AnalysisRun | None: ...
+    def find_run_by_input(self, company_id: UUID, report_type: str, input_hash: str) -> AnalysisRun | None: ...
+    def find_recent_run(
+        self,
+        company_id: UUID,
+        report_type: str,
+        *,
+        since_at: datetime,
+    ) -> AnalysisRun | None: ...
+    def save_run(self, run: AnalysisRun, *, _conn: Any = None) -> None: ...
+    def count_runs_by_status(self) -> dict[str, int]: ...
+    def next_report_version(self, company_id: UUID, report_type: str) -> int: ...
+    def save_report(self, report: AnalysisReport, *, _conn: Any = None) -> None: ...
+    def get_report(self, report_id: UUID) -> AnalysisReport | None: ...
+    def get_current_report(self, company_id: UUID, report_type: str = "customer_analysis") -> AnalysisReport | None: ...
+    def list_reports(self, company_id: UUID, *, limit: int, cursor: str | None) -> tuple[list[AnalysisReport], str | None]: ...
+    def save_suggestion(self, suggestion: AnalysisSuggestion, *, _conn: Any = None) -> None: ...
+    def get_suggestion(self, suggestion_id: UUID) -> AnalysisSuggestion | None: ...
+    def list_suggestions(self, company_id: UUID, *, status: str = "pending") -> list[AnalysisSuggestion]: ...
+
+
+class AnalysisContextPort(Protocol):
+    def load_context(self, company_id: UUID) -> AnalysisContext | None: ...
+    def list_contexts(self, *, owner_user_id: str | None = None) -> list[AnalysisContext]: ...
+
+
+class EngagementEvidenceReadPort(Protocol):
+    """Read-only boundary for communication facts owned by Customer Operation."""
+
+    def list_email_evidence(
+        self, company_id: UUID, *, cutoff_at: datetime, limit: int = 50
+    ) -> tuple[EngagementEvidence, ...]: ...
+
+    def list_confirmed_manual_note_evidence(
+        self, company_id: UUID, *, cutoff_at: datetime, limit: int = 100
+    ) -> tuple[EngagementEvidence, ...]: ...
+
+    def list_meeting_evidence(
+        self, company_id: UUID, *, cutoff_at: datetime, limit: int = 20
+    ) -> tuple[EngagementEvidence, ...]: ...
+
+
+class ReportGeneratorPort(Protocol):
+    model_name: str | None
+
+    def generate(self, context: AnalysisContext) -> GeneratedReportContent: ...
+
+
+class AnalysisJobPort(Protocol):
+    def submit(
+        self,
+        run_id: UUID,
+        job_id: UUID,
+        payload: dict[str, Any] | None = None,
+    ) -> None: ...
+
+
+class SearchPort(Protocol):
+    """Search Web/company data to enrich analysis context."""
+
+    def search_company_sources(
+        self, company_name: str
+    ) -> list[dict[str, Any]]: ...

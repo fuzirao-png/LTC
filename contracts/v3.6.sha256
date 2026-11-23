@@ -1,0 +1,15 @@
+# Controlled v3.6 architecture and database contract baseline.
+# Intentional design changes update the source, tests, and this manifest together.
+# Format: SHA-256, two spaces, repository-relative path.
+00062718d04705451159d4f5b39b8a408f68ee65c00ef436df6d98e2a7e79bcc  docs/architecture/v3.6/01-架构总览.md
+e7803afdc6bbade819c7bda1d4f5a47dfddfdd07d941d1b51c2255da36a08d8d  docs/architecture/v3.6/02-前后端分离设计.md
+1c14e08fb5a8c2c55791b8eabde73054160c58dac94a782331c5bdb0302f1e38  docs/architecture/v3.6/03-DDD领域驱动设计.md
+c9ad354e69d8747dd90334bfdbbc74eb4f58f8a645022f43ddd39bf7f510bb13  docs/architecture/v3.6/03b-DDD中文讲解.md
+8c9d6dec895f2b46193074c6691c01728d405ed57878aefc8d38278c92883636  docs/architecture/v3.6/04-数据模型设计.md
+a9f641095e596e6399f92674623ae42ba2a650afb90da7994b7e5476bde231b1  docs/architecture/v3.6/04b-数据模型中文讲解.md
+d6e11334fa3b141570c5c1fa616e927810d8940f1fa296d0bc36417df401bff8  docs/architecture/v3.6/05-API接口契约.md
+e148ff71c874a3ae1cc2b1eb798d6585f4c308bdea256116aa0e95a089af098e  docs/architecture/v3.6/06-异步任务设计.md
+b97d0626881fa6df2c1e82e3b0e93e2b1788a7472e8cb2db03bc918dd915deee  docs/architecture/v3.6/README.md
+be759e63ad5dedb554b0a3a2d8ede7cd9810d994c0c01974feef5e4ffa9e9e2f  db/migrations/0001_v3_6_initial.sql
+17edf578fc00762cc1617cebb3f6b0f15620eccb266628b36521812416045cc5  db/seeds/0001_region_country_v5.sql
+05c1b2a563e20bbd4558b1e8bd1a52e1778dd4c3dd9a32915d76970a46395749  contracts/openapi/LTC_OpenAPI_v3.6.yaml

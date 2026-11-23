@@ -1,0 +1,783 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LTC Skill 落地评估</title>
+  <style>
+    :root {
+      --ink: #122238;
+      --navy: #071b33;
+      --navy-2: #0c2948;
+      --blue: #1d64f0;
+      --cyan: #20c7c4;
+      --green: #27b67a;
+      --amber: #f5ad42;
+      --red: #e55b63;
+      --paper: #f4f7fb;
+      --card: #ffffff;
+      --muted: #63758b;
+      --line: #d8e2ee;
+      --shadow: 0 18px 60px rgba(8, 30, 57, .14);
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #091527;
+      color: var(--ink);
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif;
+    }
+    body { overflow: hidden; }
+    .deck { width: 100vw; height: 100vh; display: grid; place-items: center; }
+    .slide {
+      display: none;
+      position: relative;
+      width: min(100vw, calc(100vh * 16 / 9));
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      padding: 4.8% 5.4% 4.4%;
+    }
+    .slide.active { display: block; }
+    .slide.dark { color: white; background:
+      radial-gradient(circle at 84% 18%, rgba(32,199,196,.18), transparent 28%),
+      linear-gradient(135deg, #06182d 0%, #0b2949 58%, #071b33 100%);
+    }
+    .slide::after {
+      content: attr(data-page);
+      position: absolute; right: 3.2%; bottom: 2.5%;
+      font-size: 1.2vw; font-weight: 700; color: #8ca0b7;
+    }
+    .dark::after { color: rgba(255,255,255,.55); }
+    .eyebrow {
+      color: var(--blue); font-size: 1.05vw; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .16em; margin-bottom: 1.1%;
+    }
+    .dark .eyebrow { color: var(--cyan); }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 4.25vw; line-height: 1.08; letter-spacing: -.045em; }
+    h2 { font-size: 2.45vw; line-height: 1.18; letter-spacing: -.03em; }
+    h3 { font-size: 1.42vw; line-height: 1.25; }
+    p, li { font-size: 1.16vw; line-height: 1.52; }
+    .subtitle { margin-top: 1.5%; max-width: 75%; font-size: 1.38vw; color: var(--muted); }
+    .dark .subtitle { color: #c7d4e2; }
+    .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 3%; }
+    .tag {
+      display: inline-flex; align-items: center; gap: .45vw;
+      padding: .55vw .9vw; border-radius: 999px; background: #e6efff;
+      color: #174aa8; font-size: .95vw; font-weight: 800; white-space: nowrap;
+    }
+    .dark .tag { background: rgba(32,199,196,.16); color: #85f4ee; border: 1px solid rgba(133,244,238,.26); }
+    .dot { width: .52vw; height: .52vw; border-radius: 50%; background: currentColor; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.1%; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.8%; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5%; }
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 1.05vw;
+      padding: 1.45vw; box-shadow: 0 8px 24px rgba(12, 41, 72, .06);
+    }
+    .dark .card { background: rgba(255,255,255,.065); border-color: rgba(255,255,255,.12); box-shadow: none; }
+    .card .num { font-size: 3.2vw; font-weight: 900; color: var(--blue); line-height: 1; }
+    .dark .card .num { color: var(--cyan); }
+    .card p { color: var(--muted); margin-top: .65vw; }
+    .dark .card p { color: #c9d6e4; }
+    .chip { display: inline-block; margin-top: .85vw; padding: .35vw .65vw; border-radius: .45vw; font-size: .85vw; font-weight: 800; }
+    .chip.green { color: #087a4b; background: #dff7eb; }
+    .chip.blue { color: #174aa8; background: #e5efff; }
+    .chip.amber { color: #8a5900; background: #fff0d5; }
+    .chip.red { color: #9d2834; background: #ffe4e7; }
+    .metric-row { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 1.8%; margin-top: 4.3%; }
+    .cover-title { width: 67%; margin-top: 5.3%; }
+    .cover-title h1 span { color: var(--cyan); }
+    .cover-meta { margin-top: 3.6%; display: flex; gap: 2vw; color: #b7c7d8; font-size: 1.08vw; }
+    .cover-rail {
+      position: absolute; right: 5.3%; top: 17%; width: 21%; height: 65%;
+      display: grid; grid-template-rows: repeat(5, 1fr); gap: 3.4%;
+    }
+    .rail-item {
+      border: 1px solid rgba(255,255,255,.13); background: rgba(255,255,255,.055);
+      border-radius: .9vw; padding: 1vw 1.2vw; display: flex; align-items: center; gap: 1vw;
+    }
+    .rail-n { width: 2.35vw; height: 2.35vw; border-radius: 50%; display: grid; place-items: center; background: var(--cyan); color: #07243e; font-weight: 900; font-size: 1vw; }
+    .rail-item b { font-size: 1.1vw; }
+    .banner {
+      margin-top: 3.8%; border-radius: 1.05vw; padding: 1.65vw 1.8vw; display: flex;
+      align-items: center; justify-content: space-between; gap: 2%; background: var(--navy);
+      color: white;
+    }
+    .banner strong { font-size: 1.55vw; }
+    .banner p { color: #c7d4e2; max-width: 74%; }
+    .section-line { margin-top: 3.7%; height: .65vw; border-radius: 999px; background: #dbe6f2; overflow: hidden; display: flex; }
+    .section-line span:nth-child(1) { width: 30%; background: var(--green); }
+    .section-line span:nth-child(2) { width: 35%; background: var(--amber); }
+    .section-line span:nth-child(3) { width: 35%; background: #9fb0c2; }
+    .flow { margin-top: 4.3%; display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.2%; align-items: stretch; }
+    .flow-step {
+      position: relative; min-height: 8.25vw; border-radius: .85vw; padding: 1.2vw .95vw;
+      background: white; border: 1px solid var(--line);
+    }
+    .flow-step:not(:last-child)::after {
+      content: "›"; position: absolute; right: -1.05vw; top: 42%; z-index: 2;
+      color: var(--blue); font-size: 2.2vw; font-weight: 900;
+    }
+    .flow-step .k { font-size: .82vw; font-weight: 900; color: var(--blue); letter-spacing: .08em; }
+    .flow-step h3 { margin-top: .55vw; font-size: 1.15vw; }
+    .flow-step p { margin-top: .55vw; font-size: .9vw; color: var(--muted); }
+    .flow-step.focus { background: var(--navy); color: white; border-color: var(--navy); }
+    .flow-step.focus p { color: #c7d4e2; }
+    .flow-step.focus .k { color: var(--cyan); }
+    .matrix { margin-top: 3.2%; display: grid; grid-template-columns: 1.55fr .72fr .82fr 1.1fr; border: 1px solid var(--line); border-radius: 1vw; overflow: hidden; }
+    .matrix > div { padding: .73vw 1vw; border-bottom: 1px solid var(--line); background: white; font-size: .91vw; line-height: 1.3; }
+    .matrix > div:nth-child(4n+1) { font-weight: 800; }
+    .matrix .head { background: #dfe9f5; font-weight: 900; color: #233d5c; }
+    .matrix .last { border-bottom: 0; }
+    .bar { width: 100%; height: .52vw; background: #e4ebf3; border-radius: 999px; overflow: hidden; margin-top: .42vw; }
+    .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--cyan)); border-radius: inherit; }
+    .six { margin-top: 3.2%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.35vw; }
+    .skill-card { min-height: 8.5vw; position: relative; padding-left: 4.25vw; }
+    .skill-id {
+      position: absolute; left: 1.25vw; top: 1.35vw; width: 2.35vw; height: 2.35vw;
+      border-radius: .72vw; display: grid; place-items: center; background: var(--navy);
+      color: var(--cyan); font-weight: 900; font-size: .95vw;
+    }
+    .skill-card h3 { font-family: Consolas, monospace; font-size: 1.05vw; }
+    .skill-card p { font-size: .92vw; }
+    .architecture { margin-top: 3.5%; display: grid; grid-template-columns: 1fr 1.38fr 1fr; gap: 2.2%; align-items: stretch; }
+    .arch-col { display: grid; gap: .8vw; align-content: center; }
+    .arch-box { padding: .92vw 1vw; border-radius: .72vw; background: white; border: 1px solid var(--line); color: var(--ink); font-size: .98vw; font-weight: 800; }
+    .arch-core { background: var(--navy); border-radius: 1.1vw; padding: 1.35vw; color: white; }
+    .arch-core h3 { color: var(--cyan); text-align: center; margin-bottom: .85vw; }
+    .arch-core .mini { display: grid; grid-template-columns: repeat(2, 1fr); gap: .65vw; }
+    .arch-core .mini span { padding: .78vw .65vw; border-radius: .62vw; background: rgba(255,255,255,.09); font-size: .88vw; text-align: center; }
+    .arrow-label { text-align: center; color: var(--blue); font-size: 1.55vw; font-weight: 900; align-self: center; }
+    .loop { margin-top: 3.4%; display: grid; grid-template-columns: repeat(6, 1fr); gap: 1.15%; }
+    .loop-node { min-height: 8.2vw; padding: 1.05vw; border-radius: 50%; aspect-ratio: 1; display: grid; place-items: center; text-align: center; background: white; border: .32vw solid #dbe6f2; }
+    .loop-node strong { font-size: 1.05vw; }
+    .loop-node small { font-size: .78vw; color: var(--muted); margin-top: .35vw; display: block; }
+    .loop-node:nth-child(1), .loop-node:nth-child(6) { border-color: var(--blue); }
+    .loop-node:nth-child(3), .loop-node:nth-child(4) { border-color: var(--green); }
+    .split { margin-top: 3.4%; display: grid; grid-template-columns: 1fr 1fr; gap: 2%; }
+    .decision-card { padding: 1.5vw; border-radius: 1.05vw; min-height: 17vw; }
+    .decision-card.keep { background: #e9f9f2; border: 1px solid #b9ead3; }
+    .decision-card.pause { background: #fff4e2; border: 1px solid #f4d59e; }
+    .decision-card h3 { font-size: 1.55vw; }
+    .decision-card ul { margin: 1vw 0 0; padding-left: 1.35vw; }
+    .decision-card li { margin: .58vw 0; font-size: 1.02vw; }
+    .timeline { margin-top: 4.2%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2%; }
+    .phase { position: relative; min-height: 18vw; padding: 1.5vw; background: white; border: 1px solid var(--line); border-radius: 1.05vw; }
+    .phase::before { content: attr(data-phase); position: absolute; right: 1.15vw; top: 1vw; font-size: 2.7vw; color: #dae4ef; font-weight: 900; }
+    .phase h3 { font-size: 1.5vw; color: var(--blue); }
+    .phase .time { margin-top: .45vw; color: var(--muted); font-weight: 800; font-size: .95vw; }
+    .phase ul { padding-left: 1.15vw; margin-top: 1.1vw; }
+    .phase li { font-size: .96vw; margin: .55vw 0; }
+    .callout {
+      margin-top: 3%; padding: 1.35vw 1.5vw; border-radius: .9vw; background: #e7f0ff;
+      color: #153f86; font-size: 1.18vw; font-weight: 800;
+    }
+    .portfolio-map { margin-top: 3.2%; display: grid; grid-template-columns: .62fr 1.55fr 1fr; border: 1px solid var(--line); border-radius: 1vw; overflow: hidden; }
+    .portfolio-map > div { padding: 1vw 1.1vw; background: white; border-bottom: 1px solid var(--line); font-size: .93vw; line-height: 1.42; }
+    .portfolio-map .head { background: #dfe9f5; color: #233d5c; font-weight: 900; }
+    .portfolio-map .domain { font-size: 1.18vw; font-weight: 900; color: var(--blue); }
+    .portfolio-map .last { border-bottom: 0; }
+    .cap-grid { margin-top: 3.1%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.05vw 1.25vw; }
+    .cap-card { min-height: 7.15vw; display: grid; grid-template-columns: 2.65vw 1fr; gap: .9vw; align-items: start; padding: 1.05vw 1.15vw; }
+    .cap-icon { width: 2.55vw; height: 2.55vw; border-radius: .72vw; display: grid; place-items: center; background: #e5efff; color: var(--blue); font-weight: 900; font-size: .92vw; }
+    .dark .cap-icon { background: rgba(32,199,196,.14); color: var(--cyan); }
+    .cap-card h3 { font-size: 1.08vw; }
+    .cap-card p { margin-top: .36vw; font-size: .88vw; line-height: 1.38; }
+    .cap-card .gain { display: block; margin-top: .45vw; color: #087a4b; font-size: .82vw; font-weight: 900; }
+    .dark .cap-card .gain { color: #85f4ee; }
+    .landing-strip { margin-top: 1.45vw; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1vw; }
+    .landing-strip > div { padding: .8vw 1vw; border-radius: .72vw; background: #e7f0ff; color: #153f86; font-size: .86vw; font-weight: 800; text-align: center; }
+    .dark .landing-strip > div { background: rgba(255,255,255,.07); color: #d9e6f2; border: 1px solid rgba(255,255,255,.1); }
+    .close-grid { margin-top: 4%; display: grid; grid-template-columns: 1.25fr .75fr; gap: 4%; }
+    .close-list { display: grid; gap: 1vw; }
+    .close-item { display: grid; grid-template-columns: 2.5vw 1fr; gap: 1vw; align-items: start; }
+    .close-item b:first-child { width: 2.5vw; height: 2.5vw; border-radius: 50%; background: var(--cyan); color: var(--navy); display: grid; place-items: center; }
+    .close-item h3 { color: white; }
+    .close-item p { color: #c7d4e2; font-size: 1vw; margin-top: .2vw; }
+    .decision-number { display: grid; place-items: center; border-radius: 1.2vw; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); text-align: center; }
+    .decision-number strong { font-size: 5.3vw; color: var(--cyan); line-height: 1; }
+    .decision-number span { display: block; color: #c7d4e2; font-size: 1.1vw; margin-top: .65vw; }
+    .source { position: absolute; left: 5.4%; bottom: 2.5%; color: #8294a9; font-size: .72vw; }
+    .dark .source { color: rgba(255,255,255,.5); }
+    .nav {
+      position: fixed; left: 50%; bottom: 1.4vh; transform: translateX(-50%);
+      display: flex; gap: .5rem; align-items: center; z-index: 10;
+      background: rgba(4,15,28,.84); color: white; padding: .5rem .7rem;
+      border-radius: 999px; backdrop-filter: blur(12px);
+    }
+    .nav button { border: 0; border-radius: 999px; color: white; background: #1b3a5c; padding: .45rem .8rem; cursor: pointer; font-weight: 800; }
+    .nav span { min-width: 4rem; text-align: center; font-size: .85rem; }
+
+    /* McKinsey-style consulting system: restrained, analytical, conclusion-led. */
+    :root {
+      --ink: #10253f;
+      --navy: #071d3a;
+      --navy-2: #0b2f57;
+      --blue: #0067b9;
+      --cyan: #00a6c7;
+      --green: #198754;
+      --amber: #b97800;
+      --paper: #ffffff;
+      --card: #ffffff;
+      --muted: #5d6f82;
+      --line: #cdd7e2;
+      --shadow: none;
+    }
+    body { background: #dce3ea; }
+    .slide {
+      background: #ffffff;
+      box-shadow: 0 2px 14px rgba(7,29,58,.18);
+      padding: 4.5% 5.4% 4.2%;
+    }
+    .slide:not(:first-child)::before {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; top: 0;
+      height: .28vw;
+      background: var(--blue);
+    }
+    .slide.dark {
+      color: var(--ink);
+      background: #ffffff;
+    }
+    .slide.dark:first-child,
+    .slide.dark:last-of-type {
+      color: #ffffff;
+      background: var(--navy);
+    }
+    .slide.dark:first-child::before,
+    .slide.dark:last-of-type::before { display: none; }
+    .slide.active { animation: consultingIn .22s ease-out; }
+    @keyframes consultingIn { from { opacity: .72; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    h1 { letter-spacing: -.035em; }
+    h2 { font-size: 2.18vw; letter-spacing: -.022em; max-width: none; }
+    h3 { letter-spacing: -.01em; }
+    .top > div:first-child { flex: 1 1 auto; min-width: 0; }
+    .eyebrow {
+      color: var(--blue);
+      font-size: .92vw;
+      letter-spacing: .13em;
+      margin-bottom: .85%;
+    }
+    .dark .eyebrow { color: var(--blue); }
+    .slide.dark:first-child .eyebrow,
+    .slide.dark:last-of-type .eyebrow { color: #59c8e4; }
+    .subtitle { color: var(--muted); }
+    .dark .subtitle { color: var(--muted); }
+    .slide.dark:first-child .subtitle,
+    .slide.dark:last-of-type .subtitle { color: #c7d4e2; }
+    .tag,
+    .dark .tag {
+      border-radius: 2px;
+      border: 1px solid #bdd0e3;
+      background: #eef4fa;
+      color: #17466e;
+      padding: .42vw .72vw;
+      font-size: .82vw;
+    }
+    .card,
+    .dark .card {
+      color: var(--ink);
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      box-shadow: none;
+    }
+    .card p,
+    .dark .card p { color: var(--muted); }
+    .card .num,
+    .dark .card .num { color: var(--blue); }
+    .metric-row .card { border-top: .32vw solid var(--blue); }
+    .banner,
+    .dark .banner,
+    .slide.dark .banner {
+      color: var(--ink);
+      background: #eef4fa !important;
+      border: 0 !important;
+      border-left: .35vw solid var(--blue) !important;
+      border-radius: 0;
+      padding: 1.25vw 1.5vw;
+    }
+    .banner p,
+    .dark .banner p { color: #40566d; }
+    .section-line { height: .26vw; border-radius: 0; background: #d8e1ea; }
+    .section-line span:nth-child(1) { background: var(--blue); }
+    .section-line span:nth-child(2) { background: #58a7d8; }
+    .section-line span:nth-child(3) { background: #aab9c8; }
+    .chip { border-radius: 2px; }
+    .flow-step,
+    .flow-step.focus {
+      color: var(--ink);
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      box-shadow: none;
+    }
+    .flow-step.focus { border-top: .34vw solid var(--blue); }
+    .flow-step p,
+    .flow-step.focus p { color: var(--muted); }
+    .flow-step .k,
+    .flow-step.focus .k { color: var(--blue); }
+    .flow-step:not(:last-child)::after { color: var(--blue); }
+    .matrix,
+    .portfolio-map { border-radius: 2px; }
+    .matrix .head,
+    .portfolio-map .head { background: #e7eef5; color: #173653; }
+    .skill-card { border-left: .28vw solid var(--blue); }
+    .skill-id,
+    .cap-icon,
+    .dark .cap-icon {
+      border-radius: 2px;
+      background: #e4eff8;
+      color: var(--blue);
+    }
+    .cap-card .gain,
+    .dark .cap-card .gain { color: #197047; }
+    .landing-strip > div,
+    .dark .landing-strip > div {
+      color: #17466e;
+      background: #edf3f8;
+      border: 0;
+      border-radius: 2px;
+    }
+    .arch-box { border-radius: 2px; }
+    .arch-core { border-radius: 2px; background: var(--navy); }
+    .arch-core .mini span { border-radius: 2px; }
+    .loop-node { border-radius: 50%; }
+    .decision-card,
+    .phase,
+    .callout,
+    .decision-number { border-radius: 2px; box-shadow: none; }
+    .decision-card.keep { background: #f0f7f4; }
+    .decision-card.pause { background: #fbf6eb; }
+    .phase { border-top: .32vw solid var(--blue); }
+    .callout {
+      background: #edf3f8;
+      color: #173f68;
+      border-left: .32vw solid var(--blue);
+      border-radius: 0;
+    }
+    .dark .source { color: #8294a9; }
+    .slide.dark:first-child .source,
+    .slide.dark:last-of-type .source { color: rgba(255,255,255,.52); }
+    .slide.dark:first-child .rail-item {
+      border-radius: 2px;
+      background: rgba(255,255,255,.04);
+      border: 0;
+      border-top: 1px solid rgba(255,255,255,.24);
+    }
+    .slide.dark:first-child .rail-n { border-radius: 2px; background: #59c8e4; }
+    .slide.dark:last-of-type .decision-number {
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.2);
+    }
+    .slide.dark:last-of-type h3 { color: #ffffff; }
+    .slide.dark:last-of-type .close-item p { color: #c7d4e2; }
+    .slide.dark:last-of-type .close-item b:first-child { border-radius: 2px; background: #59c8e4; }
+    .nav { border-radius: 3px; background: rgba(7,29,58,.92); }
+    .nav button { border-radius: 2px; background: #17466e; }
+    @media print {
+      body { overflow: visible; background: white; }
+      .deck { display: block; width: auto; height: auto; }
+      .slide { display: block !important; width: 13.333in; height: 7.5in; page-break-after: always; box-shadow: none; }
+      .nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck">
+    <section class="slide dark active" data-page="01">
+      <div class="eyebrow">LTC · Product Ideation from Skills</div>
+      <div class="cover-title">
+        <h1>从 96 个 Skill 候选中<br><span>寻找 LTC 产品新机会</span></h1>
+        <p class="subtitle">把 Skill 库转成场景灵感、需求假设与可验证的技术切入点</p>
+        <div class="cover-meta"><span>关注：新场景</span><span>需求启发</span><span>技术落地</span></div>
+      </div>
+      <div class="cover-rail">
+        <div class="rail-item"><span class="rail-n">1</span><b>发现用户痛点</b></div>
+        <div class="rail-item"><span class="rail-n">2</span><b>组合产品场景</b></div>
+        <div class="rail-item"><span class="rail-n">3</span><b>复用现有能力</b></div>
+        <div class="rail-item"><span class="rail-n">4</span><b>判断技术接入</b></div>
+        <div class="rail-item"><span class="rail-n">5</span><b>设计最小实验</b></div>
+      </div>
+      <div class="source">材料：Skill分享库.xlsx · LTC repository architecture review · 2026-07-28</div>
+    </section>
+
+    <section class="slide" data-page="02">
+      <div class="top">
+        <div><div class="eyebrow">Ideation lens</div><h2>Skill 库提供产品机会，不是待安装清单</h2></div>
+        <span class="tag"><i class="dot"></i>脑暴视角</span>
+      </div>
+      <div class="metric-row">
+        <div class="card"><div class="num">96</div><h3>创意素材</h3><p>混合了业务 Skill、开发工具、基础设施和竞品模式。</p></div>
+        <div class="card"><div class="num">24</div><h3>机会能力</h3><p>可启发线索、客户、触达和工程治理四类产品需求。</p></div>
+        <div class="card"><div class="num">8</div><h3>高匹配切入点</h3><p>与现有模块、数据和 Provider 高度匹配，适合快速验证。</p></div>
+      </div>
+      <div class="banner">
+        <strong>脑暴起点</strong>
+        <p>先问 Skill 能解决哪个用户问题、能组合出什么新流程，再用 FastAPI、Vue、PostgreSQL 和 Job Runtime 判断验证成本。</p>
+      </div>
+      <div class="section-line"><span></span><span></span><span></span></div>
+      <div class="grid-3" style="margin-top:1.2vw">
+        <div><h3 style="color:var(--green)">可直接组合</h3><p style="color:var(--muted)">已有业务能力与 Provider，可快速形成产品原型。</p></div>
+        <div><h3 style="color:#a66a00">值得做实验</h3><p style="color:var(--muted)">需补 Schema、人工确认、评测数据或观测。</p></div>
+        <div><h3 style="color:#687b90">先观察</h3><p style="color:var(--muted)">当前会重复底座、扩大权限面或缺少明确场景。</p></div>
+      </div>
+    </section>
+
+    <section class="slide dark" data-page="03">
+      <div class="top">
+        <div><div class="eyebrow">Current architecture</div><h2>LTC 已有完整主链路，缺统一 Skill 层</h2></div>
+        <span class="tag"><i class="dot"></i>现状</span>
+      </div>
+      <div class="flow">
+        <div class="flow-step"><div class="k">01 DISCOVER</div><h3>企业搜索</h3><p>Exa / DuckDuckGo<br>Search Run</p></div>
+        <div class="flow-step"><div class="k">02 ENRICH</div><h3>线索富化</h3><p>Apify<br>企业 / 联系人</p></div>
+        <div class="flow-step"><div class="k">03 SCORE</div><h3>ICP 评分</h3><p>四维评分<br>证据保存</p></div>
+        <div class="flow-step"><div class="k">04 ANALYZE</div><h3>客户分析</h3><p>Profile<br>MEDDPICC</p></div>
+        <div class="flow-step"><div class="k">05 ENGAGE</div><h3>邮件 / 会议</h3><p>SMTP / IMAP<br>ASR / Summary</p></div>
+        <div class="flow-step focus"><div class="k">06 ORCHESTRATE</div><h3>Skill Runtime</h3><p>当前仅注册<br>邮件生成 / 翻译</p></div>
+      </div>
+      <div class="grid-3" style="margin-top:3.2%">
+        <div class="card"><h3>业务边界清晰</h3><p>Lead Intelligence、CRM、Customer Analysis、Operation、Meeting Analysis 已分域。</p></div>
+        <div class="card"><h3>异步底座可复用</h3><p>外部调用走 Job、Attempt、Progress、Outbox 与幂等控制。</p></div>
+        <div class="card"><h3>主要缺口</h3><p>Skill Schema、权限、版本、评测集、Trace 和反馈闭环尚未统一。</p></div>
+      </div>
+      <div class="source">证据：apps/api/src/ltc/modules/registry.py · customer_operation/application/skills_registry.py</div>
+    </section>
+
+    <section class="slide" data-page="04">
+      <div class="top">
+        <div><div class="eyebrow">Portfolio triage</div><h2>候选库必须先分型，避免把产品名当 Skill</h2></div>
+        <span class="tag"><i class="dot"></i>筛选框架</span>
+      </div>
+      <div class="grid-3" style="margin-top:4%">
+        <div class="card" style="border-top:.55vw solid var(--green)">
+          <div class="num">A</div><h3>业务 Skill</h3>
+          <p>明确输入、输出和业务动作，可绑定某个 DDD 模块。</p>
+          <span class="chip green">展开需求脑暴</span>
+        </div>
+        <div class="card" style="border-top:.55vw solid var(--amber)">
+          <div class="num" style="color:var(--amber)">B</div><h3>技术能力 / Provider</h3>
+          <p>搜索、LLM、ASR、可观测性、结构化输出等底层能力。</p>
+          <span class="chip amber">作为 Adapter 使用</span>
+        </div>
+        <div class="card" style="border-top:.55vw solid #93a4b6">
+          <div class="num" style="color:#7b8fa5">C</div><h3>平台 / 竞品</h3>
+          <p>CRM、Agent OS、低代码平台和商业产品，不等于可安装 Skill。</p>
+          <span class="chip blue">研究，不接入主链路</span>
+        </div>
+      </div>
+      <div class="banner">
+        <strong>准入问题</strong>
+        <p>它是否解决 LTC 当前主链路中的明确瓶颈？能否复用现有数据所有权、端口、Job Runtime 与审计机制？</p>
+      </div>
+      <div class="callout">Excel 还需补齐：source_url · license · version · runtime · auth · data_risk · integration_mode</div>
+    </section>
+
+    <section class="slide dark" data-page="05">
+      <div class="top">
+        <div><div class="eyebrow">Product opportunity seeds</div><h2>6 个高匹配 Skill 可直接转化为需求假设</h2></div>
+        <span class="tag"><i class="dot"></i>场景种子</span>
+      </div>
+      <div class="six">
+        <div class="card skill-card"><span class="skill-id">01</span><h3>lead.search.plan</h3><p>把业务目标、区域、场景和历史结果转成可审计搜索计划。</p></div>
+        <div class="card skill-card"><span class="skill-id">02</span><h3>lead.evidence.qualify</h3><p>对来源、时效、冲突和交叉验证打分，阻断低可信证据。</p></div>
+        <div class="card skill-card"><span class="skill-id">03</span><h3>lead.entity.normalize</h3><p>统一公司、域名、LinkedIn URL 与联系人身份，减少重复数据。</p></div>
+        <div class="card skill-card"><span class="skill-id">04</span><h3>customer.crm_fields.extract</h3><p>从会议和手记提取 CRM 字段，带证据、置信度与冲突提示。</p></div>
+        <div class="card skill-card"><span class="skill-id">05</span><h3>meeting.sales_strategy.extract</h3><p>提取需求、异议、决策链、承诺、风险与下一步动作。</p></div>
+        <div class="card skill-card"><span class="skill-id">06</span><h3>email.outreach.draft</h3><p>研究客户后生成外联草稿，复用画像、会议、邮件与任务上下文。</p></div>
+      </div>
+      <div class="banner" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)">
+        <strong>横向能力</strong>
+        <p><b style="color:var(--cyan)">skill.evaluate</b> 管固定评测集；<b style="color:var(--cyan)">skill.trace</b> 管版本、成本、延迟和结果反馈。</p>
+      </div>
+    </section>
+
+    <section class="slide" data-page="06">
+      <div class="top">
+        <div><div class="eyebrow">Reuse matrix</div><h2>8 项与现有代码高度匹配，可优先复用</h2></div>
+        <span class="tag"><i class="dot"></i>技术可行性</span>
+      </div>
+      <div class="matrix">
+        <div class="head">候选能力</div><div class="head">成熟度</div><div class="head">预计工作量</div><div class="head">直接复用位置</div>
+        <div>企业信息搜索词生成</div><div>90%<div class="bar"><i style="width:90%"></i></div></div><div>1–2 天</div><div>Lead Pipeline / LLM</div>
+        <div>LinkedIn URL 标准化</div><div>80%<div class="bar"><i style="width:80%"></i></div></div><div>1–3 天</div><div>Provider → Domain</div>
+        <div>Meeting Transcript & Strategy</div><div>80%<div class="bar"><i style="width:80%"></i></div></div><div>3–5 天</div><div>Meeting Analysis</div>
+        <div>Sales Email Alert & Summary</div><div>80%<div class="bar"><i style="width:80%"></i></div></div><div>3–5 天</div><div>IMAP / Notification</div>
+        <div>CRM Field Extraction Agent</div><div>75%<div class="bar"><i style="width:75%"></i></div></div><div>5–8 天</div><div>Manual Note / Meeting</div>
+        <div>Draft Outreach</div><div>75%<div class="bar"><i style="width:75%"></i></div></div><div>3–5 天</div><div>Email Generate Skill</div>
+        <div>客户画像与商机分层</div><div>70%<div class="bar"><i style="width:70%"></i></div></div><div>5–8 天</div><div>Customer Analysis / CRM</div>
+        <div class="last">可信源筛选</div><div class="last">60%<div class="bar"><i style="width:60%"></i></div></div><div class="last">5–10 天</div><div class="last">Evidence Policy</div>
+      </div>
+      <div class="source">成熟度为与现有模块/数据模型的匹配度，不代表外部仓库已完成许可证与安全审查。</div>
+    </section>
+
+    <section class="slide" data-page="07">
+      <div class="top">
+        <div><div class="eyebrow">Capability portfolio</div><h2>24 项能力构成四条产品机会线</h2></div>
+        <span class="tag"><i class="dot"></i>能力地图</span>
+      </div>
+      <div class="portfolio-map">
+        <div class="head">能力线</div><div class="head">可加入的 Skill / 技术</div><div class="head">加入后得到什么</div>
+        <div class="domain">线索增长</div><div>搜索词生成 · 可信源筛选 · URL 标准化 · 决策人识别 · 公司信号监控 · Niche Signal Discovery</div><div>更高有效线索率、更少脏数据、更早发现采购时机</div>
+        <div class="domain">客户理解</div><div>画像与商机分层 · CRM Field Extraction · 长期记忆 · 客户知识沉淀 · 销售对话复盘 · 优秀话术复用</div><div>画像连续、MEDDPICC 更完整、销售方法可复制</div>
+        <div class="domain">触达运营</div><div>Meeting Strategy · 多语言会议 · Email Alert · Draft Outreach · Cold Outbound · 会议预约</div><div>减少人工整理、提升个性化、缩短跟进间隔</div>
+        <div class="domain last">工程治理</div><div class="last">Instructor · Langfuse · DeepEval · Sentry/OpenLLMetry · PostHog · OpenAPI Generator</div><div class="last">输出稳定、过程可查、质量可评、问题可定位</div>
+      </div>
+      <div class="callout">脑暴方法：先从用户任务和业务断点出发组合 Skill，再判断数据、依赖和最小验证方式。</div>
+    </section>
+
+    <section class="slide dark" data-page="08">
+      <div class="top">
+        <div><div class="eyebrow">Lead growth</div><h2>线索 Skill：从找到公司到识别成交对象</h2></div>
+        <span class="tag"><i class="dot"></i>线索增长</span>
+      </div>
+      <div class="cap-grid">
+        <div class="card cap-card"><span class="cap-icon">Q</span><div><h3>企业信息搜索词生成</h3><p>将行业、区域、场景、ICP 与历史结果转成多组检索计划。</p><span class="gain">得到：提高召回率，搜索过程可重放</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">E</span><div><h3>搜索结果可信源筛选</h3><p>按官网、监管、媒体、聚合站点及内容时效评估证据。</p><span class="gain">得到：减少错误 ICP 与虚假企业字段</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">ID</span><div><h3>LinkedIn URL 标准化</h3><p>规范公司页、个人页和 slug，合并域名与名称别名。</p><span class="gain">得到：降低重复率，提高 Apify 命中率</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">DM</span><div><h3>Decision Maker Finder</h3><p>识别决策人、影响者、技术负责人和采购角色。</p><span class="gain">得到：线索从公司级进入联系人级</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">S</span><div><h3>Signal 公司动态监控</h3><p>监控融资、招聘、扩张、产品上线和管理层变化。</p><span class="gain">得到：按采购时机触发销售任务</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">ICP</span><div><h3>Niche Signal Discovery</h3><p>从赢单、输单和人工标签中发现新的细分 ICP 信号。</p><span class="gain">得到：评分模型随真实业务结果演进</span></div></div>
+      </div>
+      <div class="landing-strip"><div>接入：Lead Intelligence</div><div>复用：Exa / Apify / Evidence</div><div>主要指标：有效候选率 · 重复率 · 字段可信度</div></div>
+    </section>
+
+    <section class="slide" data-page="09">
+      <div class="top">
+        <div><div class="eyebrow">Customer intelligence</div><h2>客户 Skill：让画像跨会议、邮件持续积累</h2></div>
+        <span class="tag"><i class="dot"></i>客户理解</span>
+      </div>
+      <div class="cap-grid">
+        <div class="card cap-card"><span class="cap-icon">SEG</span><div><h3>客户画像与商机分层</h3><p>结合 ICP、规模、意向、阶段和互动形成客户分层。</p><span class="gain">得到：销售优先级和经营视图统一</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">CRM</span><div><h3>CRM Field Extraction Agent</h3><p>从会议、邮件和手记提取 Profile、MEDDPICC 与风险字段。</p><span class="gain">得到：少填表、字段更全、证据可追溯</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">MEM</span><div><h3>客户长期记忆</h3><p>保存偏好、承诺、限制条件和历史冲突，不重复询问。</p><span class="gain">得到：跨渠道沟通连续，减少上下文丢失</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">KB</span><div><h3>客户知识沉淀</h3><p>聚合高频问题、异议、竞品评价和已验证回答。</p><span class="gain">得到：形成客户专属知识库与销售 FAQ</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">QA</span><div><h3>销售对话复盘与能力评估</h3><p>评估需求挖掘、价值表达、异议处理和下一步控制。</p><span class="gain">得到：可量化辅导销售，而非主观复盘</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">WIN</span><div><h3>优秀销售话术评估与复用</h3><p>关联生成话术、客户回应和商机推进结果。</p><span class="gain">得到：筛出真正有效的话术和策略</span></div></div>
+      </div>
+      <div class="landing-strip"><div>接入：Customer Analysis / CRM</div><div>复用：Profile / MEDDPICC / Activity</div><div>主要指标：字段完整率 · 修改率 · 商机推进率</div></div>
+    </section>
+
+    <section class="slide dark" data-page="10">
+      <div class="top">
+        <div><div class="eyebrow">Sales engagement</div><h2>触达 Skill：把客户上下文转成销售行动</h2></div>
+        <span class="tag"><i class="dot"></i>触达运营</span>
+      </div>
+      <div class="cap-grid">
+        <div class="card cap-card"><span class="cap-icon">MTG</span><div><h3>Meeting Transcript & Strategy</h3><p>从转写中提取决策、异议、承诺、风险和下一步。</p><span class="gain">得到：会后自动形成销售行动清单</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">ML</span><div><h3>Multilingual Meeting Assistant</h3><p>支持多语言转写、摘要和关键业务术语统一。</p><span class="gain">得到：跨区域会议统一进入客户档案</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">IN</span><div><h3>Sales Email Alert & Summary</h3><p>识别客户回复意图、风险和需要销售介入的邮件。</p><span class="gain">得到：缩短响应时间，降低漏跟进</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">OUT</span><div><h3>Draft Outreach</h3><p>基于客户公司、岗位、动态和历史互动生成个性化草稿。</p><span class="gain">得到：更高个性化，减少销售写信时间</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">SEQ</span><div><h3>Cold Outbound Skills</h3><p>覆盖标题、正文、送达检查和多轮跟进节奏。</p><span class="gain">得到：形成可复用的外联序列</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">CAL</span><div><h3>客户会议预约</h3><p>结合时区、销售日历和客户偏好提供候选时间。</p><span class="gain">得到：减少来回确认，加快进入会议阶段</span></div></div>
+      </div>
+      <div class="landing-strip"><div>接入：Customer Operation / Meeting</div><div>复用：SMTP / IMAP / ASR / Follow-up Task</div><div>主要指标：响应时长 · 草稿采纳率 · 会议转化率</div></div>
+    </section>
+
+    <section class="slide" data-page="11">
+      <div class="top">
+        <div><div class="eyebrow">Engineering governance</div><h2>工程 Skill：让业务能力稳定、可查、可评</h2></div>
+        <span class="tag"><i class="dot"></i>工程治理</span>
+      </div>
+      <div class="cap-grid">
+        <div class="card cap-card"><span class="cap-icon">IO</span><div><h3>Instructor</h3><p>将 LLM 输出绑定到 Pydantic Schema，并自动处理校验失败。</p><span class="gain">得到：减少 JSON 解析失败与字段漂移</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">LF</span><div><h3>Langfuse</h3><p>追踪 Prompt、模型、Token、延迟、版本和调用链。</p><span class="gain">得到：知道哪个 Skill 为什么成功或失败</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">EV</span><div><h3>DeepEval</h3><p>对固定样本运行正确性、相关性和证据一致性回归。</p><span class="gain">得到：上线前量化质量，防止版本退化</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">APM</span><div><h3>Sentry + OpenLLMetry</h3><p>串联 API、Worker、Provider 与 LLM 的异常和性能信息。</p><span class="gain">得到：快速定位失败发生在哪一层</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">UX</span><div><h3>PostHog</h3><p>记录销售是否查看、修改、接受或放弃 Skill 结果。</p><span class="gain">得到：用真实使用行为衡量产品价值</span></div></div>
+        <div class="card cap-card"><span class="cap-icon">API</span><div><h3>OpenAPI Generator</h3><p>从 LTC OpenAPI 合约生成前端类型和 API Client。</p><span class="gain">得到：减少前后端字段不一致和手写代码</span></div></div>
+      </div>
+      <div class="landing-strip"><div>接入：Platform / CI / Frontend</div><div>复用：OpenAPI / Job Attempt / Trace ID</div><div>主要指标：Schema 失败率 · 回归通过率 · MTTR</div></div>
+    </section>
+
+    <section class="slide" data-page="12">
+      <div class="top">
+        <div><div class="eyebrow">Implementation detail</div><h2>CRM 字段提取是最值得打通的业务闭环</h2></div>
+        <span class="tag"><i class="dot"></i>落地示例</span>
+      </div>
+      <div class="flow" style="grid-template-columns:repeat(5,1fr);margin-top:5%">
+        <div class="flow-step"><div class="k">INPUT</div><h3>会议 / 手记</h3><p>Transcript<br>Manual Note</p></div>
+        <div class="flow-step"><div class="k">EXTRACT</div><h3>候选字段</h3><p>MEDDPICC<br>Profile / Signal</p></div>
+        <div class="flow-step focus"><div class="k">EVIDENCE</div><h3>证据与置信度</h3><p>原文定位<br>来源与版本</p></div>
+        <div class="flow-step"><div class="k">REVIEW</div><h3>人工确认</h3><p>接受 / 修改<br>拒绝 / 冲突</p></div>
+        <div class="flow-step"><div class="k">WRITE</div><h3>正式写入</h3><p>领域 Port<br>Audit / Outbox</p></div>
+      </div>
+      <div class="grid-3" style="margin-top:4%">
+        <div class="card"><h3>复用</h3><p>Manual Note Extractor、Meeting Segment、Customer Analysis Suggestion。</p></div>
+        <div class="card"><h3>新增</h3><p>统一 FieldCandidate Schema、Evidence Ref、冲突策略与确认界面。</p></div>
+        <div class="card"><h3>硬约束</h3><p>AI 不静默覆盖人工字段；所有变更可追溯、可拒绝、可重放。</p></div>
+      </div>
+    </section>
+
+    <section class="slide dark" data-page="13">
+      <div class="top">
+        <div><div class="eyebrow">Target architecture</div><h2>Skill Runtime 不绕过领域边界</h2></div>
+        <span class="tag"><i class="dot"></i>技术架构</span>
+      </div>
+      <div class="architecture">
+        <div class="arch-col">
+          <div class="arch-box">Vue / API Command</div>
+          <div class="arch-box">Job / Worker Handler</div>
+          <div class="arch-box">Inbound Event</div>
+        </div>
+        <div class="arch-core">
+          <h3>Skill Runtime</h3>
+          <div class="mini">
+            <span>Manifest + Version</span><span>Input / Output Schema</span>
+            <span>Capability Check</span><span>Idempotency Policy</span>
+            <span>Provider Policy</span><span>Fallback Policy</span>
+            <span>Audit + Trace</span><span>Evaluation Hook</span>
+          </div>
+        </div>
+        <div class="arch-col">
+          <div class="arch-box">Lead Intelligence Port</div>
+          <div class="arch-box">Customer Analysis Port</div>
+          <div class="arch-box">Operation / Meeting Port</div>
+          <div class="arch-box">External Provider Adapter</div>
+        </div>
+      </div>
+      <div class="banner" style="background:rgba(32,199,196,.1);border:1px solid rgba(32,199,196,.28)">
+        <strong>边界原则</strong>
+        <p>Skill 不直接跨模块写表；外部调用不持有数据库锁；领域结果仍通过现有 Port、Job、Outbox 和 Audit 落库。</p>
+      </div>
+      <div class="source">保持 LTC v3.6 DDD、Lease/Fencing、Idempotency 与 Outbox 设计不变。</div>
+    </section>
+
+    <section class="slide" data-page="14">
+      <div class="top">
+        <div><div class="eyebrow">Evaluation loop</div><h2>没有真实反馈数据，就没有“自优化 Skill”</h2></div>
+        <span class="tag"><i class="dot"></i>质量闭环</span>
+      </div>
+      <div class="loop">
+        <div class="loop-node"><div><strong>Skill 输出</strong><small>版本 / Prompt / Provider</small></div></div>
+        <div class="loop-node"><div><strong>销售使用</strong><small>接受 / 修改 / 放弃</small></div></div>
+        <div class="loop-node"><div><strong>客户结果</strong><small>回复 / 会议 / 阶段推进</small></div></div>
+        <div class="loop-node"><div><strong>人工标签</strong><small>正确性 / 错误原因</small></div></div>
+        <div class="loop-node"><div><strong>固定评测集</strong><small>回归 / 红队 / 边界样本</small></div></div>
+        <div class="loop-node"><div><strong>版本发布</strong><small>灰度 / 对照 / 回滚</small></div></div>
+      </div>
+      <div class="grid-3" style="margin-top:3.4%">
+        <div class="card"><h3>现在可以做</h3><p>保存接受、修改、拒绝和错误原因；建立 50–100 条黄金样本。</p></div>
+        <div class="card"><h3>随后接入</h3><p>DeepEval、Langfuse、Sentry/OpenLLMetry 等评测与观测工具。</p></div>
+        <div class="card"><h3>暂不自动化</h3><p>ICP 自学习、话术自优化、成单预测，在标签不足时不直接上线。</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-page="15">
+      <div class="top">
+        <div><div class="eyebrow">Technology choices</div><h2>保留现有底座，限制高成本扩张</h2></div>
+        <span class="tag"><i class="dot"></i>取舍</span>
+      </div>
+      <div class="split">
+        <div class="decision-card keep">
+          <h3>继续复用</h3>
+          <ul>
+            <li>FastAPI + Pydantic：接口与结构化输出边界</li>
+            <li>PostgreSQL：业务事实、Job、Evidence、Audit</li>
+            <li>Vue 3：人工确认与反馈采集界面</li>
+            <li>OpenAI-compatible Adapter：LLM / ASR 可替换</li>
+            <li>Exa + Apify：搜索和联系人 Provider</li>
+            <li>SMTP / IMAP：现有邮件闭环</li>
+          </ul>
+        </div>
+        <div class="decision-card pause">
+          <h3>当前暂缓</h3>
+          <ul>
+            <li>Supabase、Twenty CRM、CordysCRM：重复底座</li>
+            <li>Flowable、Casbin：当前流程与权限复杂度不足</li>
+            <li>Composio、Calendar/LinkedIn MCP：OAuth 与副作用面过大</li>
+            <li>Qdrant、pgvector、AnythingLLM：先定义长期记忆场景</li>
+            <li>WhisperX / Pyannote：需评估 GPU、隐私和运维</li>
+            <li>GenericAgent / PydanticAI：避免重写应用服务层</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-page="16">
+      <div class="top">
+        <div><div class="eyebrow">Idea validation path</div><h2>从产品假设到技术验证，可分三步推进</h2></div>
+        <span class="tag"><i class="dot"></i>验证路径</span>
+      </div>
+      <div class="timeline">
+        <div class="phase" data-phase="01">
+          <h3>验证能力可组合</h3><div class="time">概念验证</div>
+          <ul>
+            <li>明确用户、任务、触发点和期望输出</li>
+            <li>用现有模块拼出最小可运行流程</li>
+            <li>定义 Manifest、输入输出与 Owner</li>
+            <li>识别数据、权限和外部 Provider 依赖</li>
+          </ul>
+        </div>
+        <div class="phase" data-phase="02">
+          <h3>验证用户愿意使用</h3><div class="time">场景实验</div>
+          <ul>
+            <li>选择一个真实销售流程做灰度</li>
+            <li>保留人工确认与结果证据</li>
+            <li>观察节省时间、采用率和结果质量</li>
+            <li>采集接受、修改、拒绝及原因</li>
+          </ul>
+        </div>
+        <div class="phase" data-phase="03">
+          <h3>判断是否值得产品化</h3><div class="time">规模判断</div>
+          <ul>
+            <li>形成黄金样本和固定评测集</li>
+            <li>核算成本、延迟和维护复杂度</li>
+            <li>评估跨客户复用与配置边界</li>
+            <li>决定产品化、继续实验或停止</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide dark" data-page="17">
+      <div class="eyebrow">Brainstorm prompts</div>
+      <h2>脑暴会要回答：LTC 下一步值得试什么</h2>
+      <p class="subtitle">不急于确定一次做多少；先从四条机会线中形成具体的用户场景、需求假设和最小实验。</p>
+      <div class="close-grid">
+        <div class="close-list">
+          <div class="close-item"><b>1</b><div><h3>哪个用户问题最值得解决</h3><p>线索质量、CRM 录入、客户理解、会后跟进，哪一个痛点最强？</p></div></div>
+          <div class="close-item"><b>2</b><div><h3>哪些能力能组合成新功能</h3><p>搜索、证据、画像、会议和邮件之间，可以形成什么新的连续体验？</p></div></div>
+          <div class="close-item"><b>3</b><div><h3>哪个最小实验能快速验证</h3><p>明确用户、触发、输出、复用模块、成功指标和停止条件。</p></div></div>
+        </div>
+        <div class="decision-number"><div><strong>3–5</strong><span>个产品假设进入下一轮验证</span></div></div>
+      </div>
+      <div class="source">会议输出：每个假设标注目标用户、业务场景、可复用 Skill / 模块、关键依赖与验证指标。</div>
+    </section>
+  </main>
+
+  <nav class="nav" aria-label="幻灯片导航">
+    <button id="prev" type="button">←</button>
+    <span id="counter">1 / 17</span>
+    <button id="next" type="button">→</button>
+  </nav>
+  <script>
+    const slides = [...document.querySelectorAll('.slide')];
+    let index = 0;
+    const counter = document.getElementById('counter');
+    function show(next) {
+      index = (next + slides.length) % slides.length;
+      slides.forEach((slide, i) => slide.classList.toggle('active', i === index));
+      counter.textContent = `${index + 1} / ${slides.length}`;
+      history.replaceState(null, '', `#${index + 1}`);
+    }
+    document.getElementById('prev').onclick = () => show(index - 1);
+    document.getElementById('next').onclick = () => show(index + 1);
+    addEventListener('keydown', e => {
+      if (['ArrowRight', 'PageDown', ' '].includes(e.key)) show(index + 1);
+      if (['ArrowLeft', 'PageUp'].includes(e.key)) show(index - 1);
+      if (e.key === 'Home') show(0);
+      if (e.key === 'End') show(slides.length - 1);
+    });
+    const hash = Number(location.hash.slice(1));
+    if (hash >= 1 && hash <= slides.length) show(hash - 1);
+  </script>
+</body>
+</html>

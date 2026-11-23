@@ -1,0 +1,5500 @@
+openapi: 3.1.0
+info:
+  title: LTC API
+  version: v3.6.0
+  description: |
+    LTC current API contract for the v3.6 architecture baseline.
+    Dialogue search is the only end-user lead source entry. Apollo is used only as an internal provider inside search execution.
+    All timestamps use UTC RFC 3339.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: User
+  - name: Lead Search
+  - name: Candidate
+  - name: Sales Lead
+  - name: Company
+  - name: Analysis
+  - name: Operation
+  - name: Job
+  - name: Workspace
+  - name: Knowledge
+paths:
+  /knowledge/search:
+    post:
+      tags: [Knowledge]
+      operationId: searchKnowledge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KnowledgeSearchRequest"
+      responses:
+        "200":
+          description: Read-only knowledge search results from the configured WeKnora provider.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KnowledgeSearchEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          description: Knowledge provider unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: WeKnora is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: authLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: authRefresh
+      security: []
+      responses:
+        "200":
+          description: Access token refreshed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionRefreshEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: authLogout
+      responses:
+        "204":
+          description: Session revoked.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      operationId: authMe
+      responses:
+        "200":
+          description: Current authenticated user and capabilities.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /users:
+    get:
+      tags: [User]
+      operationId: listUsers
+      parameters:
+        - name: account_type
+          in: query
+          schema:
+            type: string
+            enum: [sales, strategic]
+        - name: region_code
+          in: query
+          schema:
+            $ref: "#/components/schemas/RegionCode"
+        - name: sales_tier
+          in: query
+          schema:
+            $ref: "#/components/schemas/SalesTier"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/UserStatus"
+        - name: q
+          in: query
+          description: Case-insensitive display name or username search.
+          schema:
+            type: string
+            maxLength: 100
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: User list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      tags: [User]
+      operationId: createUser
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserCreateRequest"
+      responses:
+        "201":
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /users/{user_id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    patch:
+      tags: [User]
+      operationId: updateUser
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserPatchRequest"
+      responses:
+        "200":
+          description: User updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  "/users/{user_id}:disable":
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [User]
+      operationId: disableUser
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: User disabled for login security. Business resources are not released by this command.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCommandEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/users/{user_id}:enable":
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [User]
+      operationId: enableUser
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Disabled account enabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCommandEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/users/{user_id}:unlock":
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [User]
+      operationId: unlockUser
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Login lock cleared.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserCommandEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/users/{user_id}:reset-password":
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [User]
+      operationId: resetUserPassword
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: One-time temporary password issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/users/{user_id}:depart":
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [User]
+      operationId: departUser
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepartUserRequest"
+      responses:
+        "200":
+          description: Active or disabled sales account marked as departed and owned leads returned to their original pools.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDepartEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /lead-search-runs:
+    post:
+      tags: [Lead Search]
+      operationId: createLeadSearchRun
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadSearchRunCreateRequest"
+      responses:
+        "202":
+          description: Search run accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /lead-search-runs/{search_run_id}:
+    parameters:
+      - $ref: "#/components/parameters/SearchRunId"
+    get:
+      tags: [Lead Search]
+      operationId: getLeadSearchRun
+      responses:
+        "200":
+          description: Search run details and provider execution summaries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadSearchRunEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  "/lead-search-runs/{search_run_id}:cancel":
+    parameters:
+      - $ref: "#/components/parameters/SearchRunId"
+    post:
+      tags: [Lead Search]
+      operationId: cancelLeadSearchRun
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Search run cancellation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/lead-search-runs/{search_run_id}:retry":
+    parameters:
+      - $ref: "#/components/parameters/SearchRunId"
+    post:
+      tags: [Lead Search]
+      operationId: retryLeadSearchRun
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Search run retry accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /lead-candidates:
+    get:
+      tags: [Candidate]
+      operationId: listLeadCandidates
+      parameters:
+        - name: search_run_id
+          in: query
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: scene_code
+          in: query
+          schema:
+            $ref: "#/components/schemas/SceneCode"
+        - name: required_sales_tier
+          in: query
+          schema:
+            $ref: "#/components/schemas/SalesTier"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [eligible, rejected, promoted, merged]
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Candidate list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /lead-candidates/{candidate_id}:
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    get:
+      tags: [Candidate]
+      operationId: getLeadCandidate
+      responses:
+        "200":
+          description: Candidate detail including scoring summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateDetailEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  "/lead-candidates/{candidate_id}:refresh-enrichment":
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    post:
+      tags: [Candidate]
+      operationId: refreshCandidateEnrichment
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Enrichment refresh accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/lead-candidates/{candidate_id}:reject":
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    post:
+      tags: [Candidate]
+      operationId: rejectCandidate
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "200":
+          description: Candidate rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateCommandEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/lead-candidates/{candidate_id}:reopen":
+    parameters:
+      - $ref: "#/components/parameters/CandidateId"
+    post:
+      tags: [Candidate]
+      operationId: reopenCandidate
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Candidate reopened.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateCommandEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/lead-candidates/{source_candidate_id}:merge":
+    parameters:
+      - $ref: "#/components/parameters/SourceCandidateId"
+    post:
+      tags: [Candidate]
+      operationId: mergeCandidate
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateMergeRequest"
+      responses:
+        "202":
+          description: Candidate merge accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  "/lead-candidates:select":
+    post:
+      tags: [Candidate]
+      operationId: selectCandidates
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CandidateSelectRequest"
+      responses:
+        "200":
+          description: Batch select result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CandidateSelectEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  "/lead-enrichment-runs/{run_id}:retry":
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    post:
+      tags: [Candidate]
+      operationId: retryLeadEnrichmentRun
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Lead enrichment retry accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/lead-enrichment-runs/{run_id}:cancel":
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    post:
+      tags: [Candidate]
+      operationId: cancelLeadEnrichmentRun
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Lead enrichment cancellation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /sales-leads/pool:
+    get:
+      tags: [Sales Lead]
+      operationId: listSalesLeadPool
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Claimable pool for the current sales account. Leads in region_unknown are hidden from Sales.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesLeadListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /sales-leads:
+    get:
+      tags: [Sales Lead]
+      operationId: listAllSalesLeads
+      parameters:
+        - name: allocation_status
+          in: query
+          schema:
+            $ref: "#/components/schemas/AllocationStatus"
+        - name: owner_user_id
+          in: query
+          schema:
+            type: string
+        - name: required_sales_tier
+          in: query
+          schema:
+            $ref: "#/components/schemas/SalesTier"
+        - name: pool_region_code
+          in: query
+          schema:
+            $ref: "#/components/schemas/RegionCode"
+        - name: sla_state
+          in: query
+          schema:
+            type: string
+            enum: [pending, overdue, completed, not_applicable]
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Strategic global sales lead list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesLeadListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /sales-leads/mine:
+    get:
+      tags: [Sales Lead]
+      operationId: listMySalesLeads
+      parameters:
+        - name: pipeline_stage
+          in: query
+          schema:
+            $ref: "#/components/schemas/PipelineStage"
+        - name: allocation_status
+          in: query
+          schema:
+            $ref: "#/components/schemas/AllocationStatus"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Current user's owned sales leads.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesLeadListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /sales-leads/{lead_id}:
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    get:
+      tags: [Sales Lead]
+      operationId: getSalesLead
+      responses:
+        "200":
+          description: Sales lead detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesLeadDetailEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  "/sales-leads/{lead_id}:claim":
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    post:
+      tags: [Sales Lead]
+      operationId: claimSalesLead
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Lead claimed by current user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentResultEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/sales-leads/{lead_id}:assign":
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    post:
+      tags: [Sales Lead]
+      operationId: assignSalesLead
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignRequest"
+      responses:
+        "200":
+          description: Lead assigned to a matching sales account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentResultEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  "/sales-leads/{lead_id}:release":
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    post:
+      tags: [Sales Lead]
+      operationId: releaseSalesLead
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "200":
+          description: Lead released back to its pool.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentResultEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/sales-leads/{lead_id}:transfer":
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    post:
+      tags: [Sales Lead]
+      operationId: transferSalesLead
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferRequest"
+      responses:
+        "200":
+          description: Lead transferred to another matching sales account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentResultEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /sales-leads/handover:
+    get:
+      tags: [Sales Lead]
+      operationId: listDepartureHandoverLeads
+      responses:
+        "200":
+          description: Pending leads retained under departed sales accounts for management handover.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HandoverLeadListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  "/sales-leads/{lead_id}:handover-assign":
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    post:
+      tags: [Sales Lead]
+      operationId: assignDepartureHandoverLead
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HandoverAssignRequest"
+      responses:
+        "200":
+          description: Pending handover lead assigned to an eligible active sales account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentResultEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  "/sales-leads:handover-return-to-pool":
+    post:
+      tags: [Sales Lead]
+      operationId: returnDepartureHandoverLeadsToPool
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HandoverReturnRequest"
+      responses:
+        "200":
+          description: All pending leads for one departed sales account returned to their original pools.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HandoverReturnEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  "/sales-leads:batch-transfer":
+    post:
+      tags: [Sales Lead]
+      operationId: batchTransferSalesLeads
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchTransferRequest"
+      responses:
+        "200":
+          description: Batch transfer result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchTransferEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  "/sales-leads/{lead_id}:first-touch":
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    post:
+      tags: [Sales Lead]
+      operationId: firstTouchSalesLead
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FirstTouchRequest"
+      responses:
+        "200":
+          description: First touch recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesLeadDetailEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/sales-leads/{lead_id}:change-stage":
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    post:
+      tags: [Sales Lead]
+      operationId: changeSalesLeadStage
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangeStageRequest"
+      responses:
+        "200":
+          description: Pipeline stage changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesLeadDetailEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/sales-leads/{lead_id}:mark-won":
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    post:
+      tags: [Sales Lead]
+      operationId: markSalesLeadWon
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "200":
+          description: Lead marked won.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesLeadDetailEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/sales-leads/{lead_id}:mark-lost":
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    post:
+      tags: [Sales Lead]
+      operationId: markSalesLeadLost
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "200":
+          description: Lead marked lost.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesLeadDetailEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /sales-leads/{lead_id}/adopted-icp:
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    get:
+      tags: [Sales Lead]
+      operationId: getAdoptedIcp
+      responses:
+        "200":
+          description: Current adopted four-dimension ICP summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdoptedIcpEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sales-leads/{lead_id}/adopted-scale:
+    parameters:
+      - $ref: "#/components/parameters/LeadId"
+    get:
+      tags: [Sales Lead]
+      operationId: getAdoptedScale
+      responses:
+        "200":
+          description: Current adopted customer scale summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdoptedScaleEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{company_id}:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Company]
+      operationId: getCompany
+      responses:
+        "200":
+          description: Company summary.
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Company]
+      operationId: updateCompany
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyPatchRequest"
+      responses:
+        "200":
+          description: Company updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanyEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /companies/{company_id}/contacts:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Company]
+      operationId: listContacts
+      responses:
+        "200":
+          description: Contacts for a company.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Company]
+      operationId: createContact
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactInput"
+      responses:
+        "201":
+          description: Contact created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /contacts/{contact_id}:
+    parameters:
+      - $ref: "#/components/parameters/ContactId"
+    patch:
+      tags: [Company]
+      operationId: updateContact
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactInput"
+      responses:
+        "200":
+          description: Contact updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /companies/{company_id}/contact-roster:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Company]
+      operationId: getContactRoster
+      responses:
+        "200":
+          description: Ranked Top 5 and backup contacts for a company.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRosterEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{company_id}/contact-roster/recalculate:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    post:
+      tags: [Company]
+      operationId: recalculateContactRoster
+      responses:
+        "200":
+          description: Contact roster recalculated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRosterEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /companies/{company_id}/contact-roster/{contact_id}:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+      - $ref: "#/components/parameters/ContactId"
+    patch:
+      tags: [Company]
+      operationId: updateContactRoster
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactRosterMutationRequest"
+      responses:
+        "200":
+          description: Contact roster updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRosterEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /companies/{company_id}/outreach/resume:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    post:
+      tags: [Company]
+      operationId: resumeCompanyOutreach
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OutreachResumeRequest"
+      responses:
+        "200":
+          description: Company outreach resumed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactRosterEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /companies/{company_id}/profile:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Analysis]
+      operationId: getCompanyProfile
+      responses:
+        "200":
+          description: Customer profile.
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerProfileEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Analysis]
+      operationId: updateCompanyProfile
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerProfilePatchRequest"
+      responses:
+        "200":
+          description: Customer profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerProfileEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /companies/{company_id}/meddpicc:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Analysis]
+      operationId: getCompanyMeddpicc
+      responses:
+        "200":
+          description: MEDDPICC summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeddpiccEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{company_id}/meddpicc/{dimension_code}:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+      - $ref: "#/components/parameters/DimensionCode"
+    patch:
+      tags: [Analysis]
+      operationId: updateCompanyMeddpiccDimension
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MeddpiccUpdateRequest"
+      responses:
+        "200":
+          description: MEDDPICC dimension updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeddpiccEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /companies/{company_id}/analysis-runs:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    post:
+      tags: [Analysis]
+      operationId: createAnalysisRun
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalysisRunCreateRequest"
+      responses:
+        "202":
+          description: Analysis run accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /analysis-runs/{run_id}:
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    get:
+      tags: [Analysis]
+      operationId: getAnalysisRun
+      responses:
+        "200":
+          description: Analysis run status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisRunEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  "/analysis-runs/{run_id}:retry":
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    post:
+      tags: [Analysis]
+      operationId: retryAnalysisRun
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Analysis retry accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/analysis-runs/{run_id}:cancel":
+    parameters:
+      - $ref: "#/components/parameters/RunId"
+    post:
+      tags: [Analysis]
+      operationId: cancelAnalysisRun
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Analysis cancellation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /companies/{company_id}/analysis-reports/current:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Analysis]
+      operationId: getCurrentAnalysisReport
+      responses:
+        "200":
+          description: Current analysis report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisReportEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{company_id}/analysis-reports:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Analysis]
+      operationId: listAnalysisReports
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Historical analysis reports.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisReportListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /analysis-reports/{report_id}:
+    parameters:
+      - $ref: "#/components/parameters/ReportId"
+    get:
+      tags: [Analysis]
+      operationId: getAnalysisReport
+      responses:
+        "200":
+          description: Analysis report detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisReportEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customer-analysis/field-catalog:
+    get:
+      tags: [Analysis]
+      operationId: getCustomerAnalysisFieldCatalog
+      responses:
+        "200":
+          description: Canonical 13 Profile plus 4 core MEDDPICC field catalog.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoreFieldCatalogEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /companies/{company_id}/core-fields:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Analysis]
+      operationId: getCompanyCoreFields
+      responses:
+        "200":
+          description: Current values and pending candidates for the 17 core fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CoreFieldsEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /companies/{company_id}/analysis-suggestions:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Analysis]
+      operationId: listAnalysisSuggestions
+      responses:
+        "200":
+          description: Analysis suggestions waiting for review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisSuggestionListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  "/companies/{company_id}/analysis-suggestions:review-batch":
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    post:
+      tags: [Analysis]
+      operationId: reviewAnalysisSuggestionsBatch
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestionBatchReviewRequest"
+      responses:
+        "200":
+          description: Suggestions reviewed and accepted values written atomically.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestionBatchReviewEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/analysis-suggestions/{suggestion_id}:accept":
+    parameters:
+      - $ref: "#/components/parameters/SuggestionId"
+    post:
+      tags: [Analysis]
+      operationId: acceptAnalysisSuggestion
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Suggestion accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisSuggestionCommandEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/analysis-suggestions/{suggestion_id}:reject":
+    parameters:
+      - $ref: "#/components/parameters/SuggestionId"
+    post:
+      tags: [Analysis]
+      operationId: rejectAnalysisSuggestion
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "200":
+          description: Suggestion rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisSuggestionCommandEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /companies/{company_id}/timeline:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Operation]
+      operationId: getCompanyTimeline
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Customer timeline.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimelineEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /companies/{company_id}/emails:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Operation]
+      operationId: listCompanyEmails
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Company email history.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailMessageListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /customers/{company_id}/email-drafts:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Operation]
+      operationId: listCustomerOperationEmailDrafts
+      responses:
+        "200":
+          description: Sales user's saved drafts for the customer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerOperationEmailDraftListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Operation]
+      operationId: createCustomerOperationEmailDraft
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CustomerOperationEmailDraftSaveRequest"
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerOperationEmailDraftSaveRequest"
+      responses:
+        "200":
+          description: Draft saved with persisted attachments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerOperationEmailDraftEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /email-drafts/{email_id}:
+    parameters:
+      - $ref: "#/components/parameters/EmailId"
+    get:
+      tags: [Operation]
+      operationId: getCustomerOperationEmailDraft
+      responses:
+        "200":
+          description: Draft detail including persisted attachments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerOperationEmailDraftEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Operation]
+      operationId: updateCustomerOperationEmailDraft
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CustomerOperationEmailDraftSaveRequest"
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerOperationEmailDraftSaveRequest"
+      responses:
+        "200":
+          description: Draft updated and version incremented.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerOperationEmailDraftEnvelope"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Operation]
+      operationId: deleteCustomerOperationEmailDraft
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Draft soft-deleted.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /email-drafts/{email_id}/attachments/{attachment_id}:
+    parameters:
+      - $ref: "#/components/parameters/EmailId"
+      - name: attachment_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/Uuid"
+    delete:
+      tags: [Operation]
+      operationId: deleteCustomerOperationEmailDraftAttachment
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Attachment deleted and draft version incremented.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerOperationEmailDraftEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /companies/{company_id}/email-drafts:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    post:
+      tags: [Operation]
+      operationId: createEmailDraft
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailDraftCreateRequest"
+      responses:
+        "202":
+          description: Email draft generation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /customer-operation/email/agent:
+    post:
+      tags: [Operation]
+      operationId: runEmailAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailAgentRequest"
+      responses:
+        "200":
+          description: Email Agent review candidate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailAgentResult"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          description: Email Agent or model provider failed.
+
+  /email-messages/{email_id}:
+    parameters:
+      - $ref: "#/components/parameters/EmailId"
+    get:
+      tags: [Operation]
+      operationId: getEmailMessage
+      responses:
+        "200":
+          description: Email message detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailMessageEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Operation]
+      operationId: updateEmailDraft
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailDraftPatchRequest"
+      responses:
+        "200":
+          description: Email draft updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailMessageEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/email-messages/{email_id}:translate":
+    parameters:
+      - $ref: "#/components/parameters/EmailId"
+    post:
+      tags: [Operation]
+      operationId: translateEmailDraft
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailTranslateRequest"
+      responses:
+        "202":
+          description: Email translation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/email-messages/{email_id}:approve":
+    parameters:
+      - $ref: "#/components/parameters/EmailId"
+    post:
+      tags: [Operation]
+      operationId: approveEmailDraft
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailApproveRequest"
+      responses:
+        "200":
+          description: Email draft approved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailMessageEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/email-messages/{email_id}:send":
+    parameters:
+      - $ref: "#/components/parameters/EmailId"
+    post:
+      tags: [Operation]
+      operationId: sendEmailMessage
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailSendRequest"
+      responses:
+        "202":
+          description: Email send accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /webhooks/email/{provider_code}:
+    parameters:
+      - $ref: "#/components/parameters/ProviderCode"
+    post:
+      tags: [Operation]
+      operationId: receiveEmailWebhook
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "204":
+          description: Webhook accepted.
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /companies/{company_id}/meetings:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Operation]
+      operationId: listCompanyMeetings
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Company meeting list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Operation]
+      operationId: createMeeting
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/MeetingUploadRequest"
+      responses:
+        "202":
+          description: Meeting upload accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /meetings/upload:
+    post:
+      tags: [Operation]
+      operationId: uploadMeetingRecording
+      description: Saves the recording and queues resumable processing. Poll the meeting detail for progress and results.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [company_id, file]
+              properties:
+                company_id: {type: string, format: uuid}
+                title: {type: string}
+                file: {type: string, format: binary}
+      responses:
+        "200":
+          description: Recording saved and processing queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [request_id, data]
+                properties:
+                  request_id: {type: string, format: uuid}
+                  data:
+                    type: object
+                    required: [meeting_id, status]
+                    properties:
+                      meeting_id: {type: string, format: uuid}
+                      status: {type: string, enum: [uploaded]}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /meetings/{meeting_id}:
+    parameters:
+      - $ref: "#/components/parameters/MeetingId"
+    get:
+      tags: [Operation]
+      operationId: getMeeting
+      responses:
+        "200":
+          description: Meeting detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Operation]
+      operationId: deleteMeeting
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          description: Meeting deleted logically.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /meetings/{meeting_id}/segments:
+    parameters:
+      - $ref: "#/components/parameters/MeetingId"
+    get:
+      tags: [Operation]
+      operationId: listMeetingSegments
+      responses:
+        "200":
+          description: Meeting transcript segments.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingSegmentListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /meetings/{meeting_id}/media:
+    parameters:
+      - $ref: "#/components/parameters/MeetingId"
+    get:
+      tags: [Operation]
+      operationId: getMeetingMedia
+      responses:
+        "200":
+          description: Authorized media access token or URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingMediaEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  "/meetings/{meeting_id}:retry":
+    parameters:
+      - $ref: "#/components/parameters/MeetingId"
+    post:
+      tags: [Operation]
+      operationId: retryMeetingProcessing
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Meeting retry accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/meetings/{meeting_id}:cancel":
+    parameters:
+      - $ref: "#/components/parameters/MeetingId"
+    post:
+      tags: [Operation]
+      operationId: cancelMeetingProcessing
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Meeting cancellation accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /follow-up-tasks:
+    get:
+      tags: [Operation]
+      operationId: listFollowUpTasks
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Follow-up task list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowUpTaskListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /companies/{company_id}/follow-up-tasks:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    post:
+      tags: [Operation]
+      operationId: createFollowUpTask
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FollowUpTaskCreateRequest"
+      responses:
+        "201":
+          description: Follow-up task created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowUpTaskEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /follow-up-tasks/{task_id}:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    patch:
+      tags: [Operation]
+      operationId: updateFollowUpTask
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FollowUpTaskPatchRequest"
+      responses:
+        "200":
+          description: Follow-up task updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowUpTaskEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/follow-up-tasks/{task_id}:complete":
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      tags: [Operation]
+      operationId: completeFollowUpTask
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Follow-up task completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowUpTaskEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/follow-up-tasks/{task_id}:cancel":
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    post:
+      tags: [Operation]
+      operationId: cancelFollowUpTask
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "200":
+          description: Follow-up task cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowUpTaskEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /companies/{company_id}/activities:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    post:
+      tags: [Operation]
+      operationId: createActivity
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivityCreateRequest"
+      responses:
+        "201":
+          description: Activity created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /companies/{company_id}/manual-notes:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Operation]
+      operationId: listManualNotes
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Manual note list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualNoteListEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Operation]
+      operationId: createManualNote
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManualNoteCreateRequest"
+      responses:
+        "202":
+          description: Manual note extraction accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /manual-notes/{note_id}:
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    get:
+      tags: [Operation]
+      operationId: getManualNote
+      responses:
+        "200":
+          description: Manual note detail including extracted fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualNoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  "/manual-notes/{note_id}:confirm":
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    post:
+      tags: [Operation]
+      operationId: confirmManualNote
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManualNoteConfirmRequest"
+      responses:
+        "200":
+          description: Manual note confirmation applied in batch.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualNoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  "/manual-notes/{note_id}:discard":
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    post:
+      tags: [Operation]
+      operationId: discardManualNoteExtraction
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+      responses:
+        "200":
+          description: Extracted result discarded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualNoteEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/manual-notes/{note_id}:retry-extract":
+    parameters:
+      - $ref: "#/components/parameters/NoteId"
+    post:
+      tags: [Operation]
+      operationId: retryManualNoteExtraction
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Manual note extraction retry accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AsyncAcceptedEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /jobs/{job_id}:
+    parameters:
+      - $ref: "#/components/parameters/JobId"
+    get:
+      tags: [Job]
+      operationId: getJob
+      responses:
+        "200":
+          description: Job status and progress summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /jobs/{job_id}/events:
+    parameters:
+      - $ref: "#/components/parameters/JobId"
+    get:
+      tags: [Job]
+      operationId: streamJobEvents
+      parameters:
+        - name: Last-Event-ID
+          in: header
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Server-sent event stream.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  "/ops/jobs/{job_id}:retry":
+    parameters:
+      - $ref: "#/components/parameters/JobId"
+    post:
+      tags: [Job]
+      operationId: retryJob
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Job retry accepted by owning aggregate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCommandEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  "/ops/jobs/{job_id}:cancel":
+    parameters:
+      - $ref: "#/components/parameters/JobId"
+    post:
+      tags: [Job]
+      operationId: cancelJob
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Job cancellation accepted by owning aggregate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobCommandEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /workspaces/sales:
+    get:
+      tags: [Workspace]
+      operationId: getSalesWorkspace
+      responses:
+        "200":
+          description: Sales workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesWorkspaceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /workspaces/strategic:
+    get:
+      tags: [Workspace]
+      operationId: getStrategicWorkspace
+      responses:
+        "200":
+          description: Strategic workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StrategicWorkspaceEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /dashboards/lead-funnel:
+    get:
+      tags: [Workspace]
+      operationId: getLeadFunnelDashboard
+      responses:
+        "200":
+          description: Lead funnel dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /dashboards/allocation:
+    get:
+      tags: [Workspace]
+      operationId: getAllocationDashboard
+      responses:
+        "200":
+          description: Allocation dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /dashboards/pipeline:
+    get:
+      tags: [Workspace]
+      operationId: getPipelineDashboard
+      responses:
+        "200":
+          description: Pipeline dashboard.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /companies/{company_id}/360:
+    parameters:
+      - $ref: "#/components/parameters/CompanyId"
+    get:
+      tags: [Workspace]
+      operationId: getCompany360
+      responses:
+        "200":
+          description: Customer 360 aggregate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer360Envelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    SearchRunId:
+      name: search_run_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    CandidateId:
+      name: candidate_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    SourceCandidateId:
+      name: source_candidate_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    LeadId:
+      name: lead_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    CompanyId:
+      name: company_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    ContactId:
+      name: contact_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    DimensionCode:
+      name: dimension_code
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [metrics, economic_buyer, decision_criteria, decision_process, paper_process, identify_pain, champion, competition]
+    ReportId:
+      name: report_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    SuggestionId:
+      name: suggestion_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    EmailId:
+      name: email_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    ProviderCode:
+      name: provider_code
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [microsoft_graph, gmail]
+    MeetingId:
+      name: meeting_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    NoteId:
+      name: note_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    JobId:
+      name: job_id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+  responses:
+    Unauthorized:
+      description: Authentication required.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Forbidden:
+      description: Permission denied.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Conflict:
+      description: State conflict.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ValidationError:
+      description: Validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+    AccountType:
+      type: string
+      enum: [sales, strategic]
+    UserStatus:
+      type: string
+      enum: [active, disabled, departed]
+    SalesTier:
+      type: string
+      enum: [MA, SA, A]
+    RegionCode:
+      type: string
+      enum: [NA, EA, SEA, EU, ME, OTHER]
+    SceneCode:
+      type: string
+      enum: [S1, S2, S3, S4]
+    SearchMode:
+      type: string
+      enum: [company_only, contact_only, both]
+    JobStatus:
+      type: string
+      enum: [queued, running, succeeded, failed_final, cancelled]
+    AllocationStatus:
+      type: string
+      enum: [claimable, claimed, released, won, lost]
+    PipelineStage:
+      type: string
+      enum: [new, engaged, qualified, proposal, negotiation, won, lost]
+    DataCompletionPool:
+      type: string
+      enum: [scale_unknown, region_unknown]
+    RequestMeta:
+      type: object
+      required: [request_id]
+      properties:
+        request_id:
+          type: string
+    PageMeta:
+      type: object
+      required: [has_more]
+      properties:
+        next_cursor:
+          type:
+            - string
+            - "null"
+        has_more:
+          type: boolean
+    ErrorEnvelope:
+      type: object
+      required: [request_id, error]
+      properties:
+        request_id:
+          type: string
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              examples: [AUTH_INVALID_CREDENTIALS, USER_DEPARTED, SCENE_NOT_SUPPORTED, VERSION_CONFLICT]
+            message:
+              type: string
+            details:
+              type:
+                - object
+                - "null"
+              additionalProperties: true
+    JobRef:
+      type: object
+      required: [job_id, status]
+      properties:
+        job_id:
+          $ref: "#/components/schemas/Uuid"
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        status_url:
+          type: string
+          example: /api/v1/jobs/3fa85f64-5717-4562-b3fc-2c963f66afa6
+        events_url:
+          type: string
+          example: /api/v1/jobs/3fa85f64-5717-4562-b3fc-2c963f66afa6/events
+    AsyncAcceptedEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [resource_type, resource_id, job]
+          properties:
+            resource_type:
+              type: string
+            resource_id:
+              $ref: "#/components/schemas/Uuid"
+            job:
+              $ref: "#/components/schemas/JobRef"
+    UserSummary:
+      type: object
+      required: [user_id, username, display_name, account_type, status]
+      properties:
+        user_id:
+          $ref: "#/components/schemas/Uuid"
+        username:
+          type: string
+        display_name:
+          type: string
+        email:
+          type:
+            - string
+            - "null"
+          format: email
+        account_type:
+          $ref: "#/components/schemas/AccountType"
+        status:
+          $ref: "#/components/schemas/UserStatus"
+        sales_tier:
+          anyOf:
+            - $ref: "#/components/schemas/SalesTier"
+            - type: "null"
+        region_code:
+          anyOf:
+            - $ref: "#/components/schemas/RegionCode"
+            - type: "null"
+        capacity_limit:
+          type:
+            - integer
+            - "null"
+        active_assignment_count:
+          type: integer
+    MeEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [user, capabilities]
+          properties:
+            user:
+              $ref: "#/components/schemas/UserSummary"
+            capabilities:
+              type: array
+              items:
+                type: string
+            token_expires_at:
+              type:
+                - string
+                - "null"
+              format: date-time
+    SessionRefreshEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [refreshed]
+          properties:
+            refreshed:
+              type: boolean
+            token_expires_at:
+              type: string
+              format: date-time
+    UserCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password, display_name, account_type]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+        display_name:
+          type: string
+        email:
+          type:
+            - string
+            - "null"
+          format: email
+        account_type:
+          $ref: "#/components/schemas/AccountType"
+        sales_tier:
+          anyOf:
+            - $ref: "#/components/schemas/SalesTier"
+            - type: "null"
+        region_code:
+          anyOf:
+            - $ref: "#/components/schemas/RegionCode"
+            - type: "null"
+        capacity_limit:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+    UserPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        display_name:
+          type: string
+        email:
+          type:
+            - string
+            - "null"
+          format: email
+    UserEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/UserSummary"
+    UserListEnvelope:
+      type: object
+      required: [request_id, data, page]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSummary"
+        page:
+          $ref: "#/components/schemas/PageMeta"
+    UserCommandEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [user_id, status, version]
+          properties:
+            user_id:
+              $ref: "#/components/schemas/Uuid"
+            status:
+              $ref: "#/components/schemas/UserStatus"
+            version:
+              type: integer
+    PasswordResetEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [user_id, temporary_password]
+          properties:
+            user_id:
+              $ref: "#/components/schemas/Uuid"
+            temporary_password:
+              type: string
+    DepartUserRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          enum: [employee_departure]
+    UserDepartEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [user_id, status, released_lead_count, returned_pools, departed_at]
+          properties:
+            user_id:
+              $ref: "#/components/schemas/Uuid"
+            status:
+              type: string
+              enum: [departed]
+            released_lead_count:
+              type: integer
+            returned_pools:
+              type: array
+              items:
+                type: object
+                required: [region_code, sales_tier, count]
+                properties:
+                  region_code:
+                    $ref: "#/components/schemas/RegionCode"
+                  sales_tier:
+                    $ref: "#/components/schemas/SalesTier"
+                  count:
+                    type: integer
+            departed_at:
+              type: string
+              format: date-time
+    LeadSearchRunCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [query_text, search_mode, target_count, scene_code]
+      properties:
+        query_text:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        search_mode:
+          $ref: "#/components/schemas/SearchMode"
+        target_count:
+          type: integer
+          minimum: 1
+          maximum: 200
+        scene_code:
+          $ref: "#/components/schemas/SceneCode"
+    ProviderExecutionSummary:
+      type: object
+      required: [provider_code, status, result_count]
+      properties:
+        provider_code:
+          type: string
+          enum: [web_search, apollo]
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, partial]
+        result_count:
+          type: integer
+        error_summary:
+          type:
+            - string
+            - "null"
+    LeadSearchRunSummary:
+      type: object
+      required: [search_run_id, query_text, search_mode, scene_code, status, provider_executions]
+      properties:
+        search_run_id:
+          $ref: "#/components/schemas/Uuid"
+        query_text:
+          type: string
+        search_mode:
+          $ref: "#/components/schemas/SearchMode"
+        scene_code:
+          $ref: "#/components/schemas/SceneCode"
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed_final, cancelled, partial]
+        current_step:
+          type:
+            - string
+            - "null"
+        progress_percent:
+          type: number
+        provider_executions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderExecutionSummary"
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
+        current_job_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+    LeadSearchRunEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/LeadSearchRunSummary"
+    IcpSummary:
+      type: object
+      required: [scene_code, total_score, grade, dimensions]
+      properties:
+        scene_code:
+          $ref: "#/components/schemas/SceneCode"
+        total_score:
+          type: number
+        grade:
+          type: string
+          enum: [A, B, C, D]
+        dimensions:
+          type: array
+          items:
+            type: object
+            required: [dimension_code, weight, score]
+            properties:
+              dimension_code:
+                type: string
+              weight:
+                type: integer
+              score:
+                type: number
+    ScaleSummary:
+      type: object
+      required: [required_sales_tier]
+      properties:
+        required_sales_tier:
+          $ref: "#/components/schemas/SalesTier"
+        effective_tier:
+          type:
+            - string
+            - "null"
+        score:
+          type:
+            - number
+            - "null"
+    CandidateSummary:
+      type: object
+      required: [candidate_id, company_name, status, scene_code]
+      properties:
+        candidate_id:
+          $ref: "#/components/schemas/Uuid"
+        company_name:
+          type: string
+        status:
+          type: string
+          enum: [eligible, rejected, promoted, merged]
+        scene_code:
+          $ref: "#/components/schemas/SceneCode"
+        required_sales_tier:
+          anyOf:
+            - $ref: "#/components/schemas/SalesTier"
+            - type: "null"
+        pool_region_code:
+          anyOf:
+            - $ref: "#/components/schemas/RegionCode"
+            - type: "null"
+        data_completion_pool:
+          anyOf:
+            - $ref: "#/components/schemas/DataCompletionPool"
+            - type: "null"
+        icp:
+          anyOf:
+            - $ref: "#/components/schemas/IcpSummary"
+            - type: "null"
+        scale:
+          anyOf:
+            - $ref: "#/components/schemas/ScaleSummary"
+            - type: "null"
+        version:
+          type: integer
+    CandidateListEnvelope:
+      type: object
+      required: [request_id, data, page]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CandidateSummary"
+        page:
+          $ref: "#/components/schemas/PageMeta"
+    CandidateDetailEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          allOf:
+            - $ref: "#/components/schemas/CandidateSummary"
+            - type: object
+              properties:
+                search_run_id:
+                  $ref: "#/components/schemas/Uuid"
+                evidence_count:
+                  type: integer
+                contact_count:
+                  type: integer
+                notes:
+                  type:
+                    - string
+                    - "null"
+    CandidateMergeRequest:
+      type: object
+      additionalProperties: false
+      required: [target_candidate_id, target_expected_version, reason]
+      properties:
+        target_candidate_id:
+          $ref: "#/components/schemas/Uuid"
+        target_expected_version:
+          type: integer
+          minimum: 0
+        reason:
+          type: string
+          minLength: 1
+    CandidateSelectRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: false
+            required: [candidate_id, expected_version, override]
+            properties:
+              candidate_id:
+                $ref: "#/components/schemas/Uuid"
+              expected_version:
+                type: integer
+                minimum: 0
+              override:
+                type: boolean
+                default: false
+              override_reason:
+                type:
+                  - string
+                  - "null"
+    CandidateSelectEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [succeeded, failed]
+          properties:
+            succeeded:
+              type: array
+              items:
+                type: object
+                required: [candidate_id, company_id, lead_id, promotion_result, allocation_status]
+                properties:
+                  candidate_id:
+                    $ref: "#/components/schemas/Uuid"
+                  company_id:
+                    $ref: "#/components/schemas/Uuid"
+                  lead_id:
+                    $ref: "#/components/schemas/Uuid"
+                  promotion_result:
+                    type: string
+                    enum: [created_lead, reused_open_lead, created_completion_lead]
+                  allocation_status:
+                    $ref: "#/components/schemas/AllocationStatus"
+            failed:
+              type: array
+              items:
+                type: object
+                required: [candidate_id, code, message]
+                properties:
+                  candidate_id:
+                    $ref: "#/components/schemas/Uuid"
+                  code:
+                    type: string
+                  message:
+                    type: string
+    CandidateCommandEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [candidate_id, status, version]
+          properties:
+            candidate_id:
+              $ref: "#/components/schemas/Uuid"
+            status:
+              type: string
+            version:
+              type: integer
+    CompanySummary:
+      type: object
+      required: [company_id, name]
+      properties:
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+        region_code:
+          anyOf:
+            - $ref: "#/components/schemas/RegionCode"
+            - type: "null"
+        country_code:
+          type:
+            - string
+            - "null"
+        website:
+          type:
+            - string
+            - "null"
+        industry:
+          type:
+            - string
+            - "null"
+    CurrentAssignmentSummary:
+      type: object
+      properties:
+        assignment_id:
+          $ref: "#/components/schemas/Uuid"
+        owner_user_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        assigned_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    SalesLeadSummary:
+      type: object
+      required: [lead_id, company, allocation_status, pipeline_stage, required_sales_tier, version]
+      properties:
+        lead_id:
+          $ref: "#/components/schemas/Uuid"
+        company:
+          $ref: "#/components/schemas/CompanySummary"
+        current_assignment:
+          anyOf:
+            - $ref: "#/components/schemas/CurrentAssignmentSummary"
+            - type: "null"
+        required_sales_tier:
+          $ref: "#/components/schemas/SalesTier"
+        icp_score:
+          type:
+            - number
+            - "null"
+        icp_grade:
+          type:
+            - string
+            - "null"
+        pool_region_code:
+          anyOf:
+            - $ref: "#/components/schemas/RegionCode"
+            - type: "null"
+        data_completion_pool:
+          anyOf:
+            - $ref: "#/components/schemas/DataCompletionPool"
+            - type: "null"
+        allocation_status:
+          $ref: "#/components/schemas/AllocationStatus"
+        pipeline_stage:
+          $ref: "#/components/schemas/PipelineStage"
+        sla_due_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        icp_score:
+          type:
+            - number
+            - "null"
+          minimum: 0
+          maximum: 100
+        icp_grade:
+          type:
+            - string
+            - "null"
+          enum: [A, B, C, D, null]
+        customer_size_grade:
+          type:
+            - string
+            - "null"
+          enum: [A, B, C, null]
+        version:
+          type: integer
+    SalesLeadListEnvelope:
+      type: object
+      required: [request_id, data, page]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SalesLeadSummary"
+        page:
+          $ref: "#/components/schemas/PageMeta"
+    SalesLeadDetailEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          allOf:
+            - $ref: "#/components/schemas/SalesLeadSummary"
+            - type: object
+              properties:
+                adopted_icp:
+                  anyOf:
+                    - $ref: "#/components/schemas/IcpSummary"
+                    - type: "null"
+                adopted_scale:
+                  anyOf:
+                    - $ref: "#/components/schemas/ScaleSummary"
+                    - type: "null"
+                first_touched_at:
+                  type:
+                    - string
+                    - "null"
+                  format: date-time
+                last_activity_at:
+                  type:
+                    - string
+                    - "null"
+                  format: date-time
+    AssignRequest:
+      type: object
+      additionalProperties: false
+      required: [assignee_user_id, reason_code, reason_text]
+      properties:
+        assignee_user_id:
+          $ref: "#/components/schemas/Uuid"
+        reason_code:
+          type: string
+          enum: [strategic_assignment]
+        reason_text:
+          type: string
+    TransferRequest:
+      type: object
+      additionalProperties: false
+      required: [to_assignee_user_id, reason_code, reason_text]
+      properties:
+        to_assignee_user_id:
+          $ref: "#/components/schemas/Uuid"
+        reason_code:
+          type: string
+          enum: [workload_transfer, workload_rebalance]
+        reason_text:
+          type: string
+
+    HandoverAssignRequest:
+      type: object
+      additionalProperties: false
+      required: [to_assignee_user_id]
+      properties:
+        to_assignee_user_id:
+          $ref: "#/components/schemas/Uuid"
+        reason_text:
+          type:
+            - string
+            - "null"
+          maxLength: 500
+
+    HandoverReturnRequest:
+      type: object
+      additionalProperties: false
+      required: [departed_user_id]
+      properties:
+        departed_user_id:
+          $ref: "#/components/schemas/Uuid"
+
+    HandoverLead:
+      type: object
+      additionalProperties: false
+      required: [lead_id, company_id, company_name, departed_user_id, departed_user_name, sales_tier, region_code, required_sales_tier, customer_grade, customer_region_code, country_code, country_name, pipeline_stage, allocation_status, version]
+      properties:
+        lead_id:
+          $ref: "#/components/schemas/Uuid"
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        company_name:
+          type: string
+        departed_user_id:
+          $ref: "#/components/schemas/Uuid"
+        departed_user_name:
+          type: string
+        sales_tier:
+          $ref: "#/components/schemas/SalesTier"
+        region_code:
+          anyOf:
+            - $ref: "#/components/schemas/RegionCode"
+            - type: "null"
+        required_sales_tier:
+          $ref: "#/components/schemas/SalesTier"
+        customer_grade:
+          type: [string, "null"]
+          enum: [A, B, C, D, null]
+        customer_region_code:
+          anyOf:
+            - $ref: "#/components/schemas/RegionCode"
+            - type: "null"
+        country_code:
+          type: [string, "null"]
+          minLength: 2
+          maxLength: 2
+        country_name:
+          type: [string, "null"]
+        pipeline_stage:
+          type: string
+        allocation_status:
+          type: string
+          enum: [claimed]
+        version:
+          type: integer
+
+    HandoverLeadListEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/HandoverLead"
+
+    HandoverReturnEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        data:
+          type: object
+          required: [departed_user_id, returned_count, leads]
+          properties:
+            departed_user_id:
+              $ref: "#/components/schemas/Uuid"
+            returned_count:
+              type: integer
+            leads:
+              type: array
+              items:
+                type: object
+                required: [lead_id, company_id, company_name, version]
+                properties:
+                  lead_id:
+                    $ref: "#/components/schemas/Uuid"
+                  company_id:
+                    $ref: "#/components/schemas/Uuid"
+                  company_name:
+                    type: string
+                  version:
+                    type: integer
+
+    BatchTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items:
+            type: object
+            additionalProperties: false
+            required: [lead_id, expected_version, to_assignee_user_id, reason_code, reason_text]
+            properties:
+              lead_id:
+                $ref: "#/components/schemas/Uuid"
+              expected_version:
+                type: integer
+              to_assignee_user_id:
+                $ref: "#/components/schemas/Uuid"
+              reason_code:
+                type: string
+              reason_text:
+                type: string
+    ReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason_code, reason_text]
+      properties:
+        reason_code:
+          type: string
+        reason_text:
+          type: string
+    AssignmentResultEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [lead_id, allocation_status, version]
+          properties:
+            lead_id:
+              $ref: "#/components/schemas/Uuid"
+            assignment_id:
+              anyOf:
+                - $ref: "#/components/schemas/Uuid"
+                - type: "null"
+            previous_assignment_id:
+              anyOf:
+                - $ref: "#/components/schemas/Uuid"
+                - type: "null"
+            from_owner_user_id:
+              anyOf:
+                - $ref: "#/components/schemas/Uuid"
+                - type: "null"
+            to_owner_user_id:
+              anyOf:
+                - $ref: "#/components/schemas/Uuid"
+                - type: "null"
+            allocation_status:
+              $ref: "#/components/schemas/AllocationStatus"
+            assigned_at:
+              type:
+                - string
+                - "null"
+              format: date-time
+            version:
+              type: integer
+    BatchTransferEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [succeeded, failed]
+          properties:
+            succeeded:
+              type: array
+              items:
+                type: object
+                required: [lead_id, previous_assignment_id, new_assignment_id, version]
+                properties:
+                  lead_id:
+                    $ref: "#/components/schemas/Uuid"
+                  previous_assignment_id:
+                    $ref: "#/components/schemas/Uuid"
+                  new_assignment_id:
+                    $ref: "#/components/schemas/Uuid"
+                  version:
+                    type: integer
+            failed:
+              type: array
+              items:
+                type: object
+                required: [lead_id, code, message]
+                properties:
+                  lead_id:
+                    $ref: "#/components/schemas/Uuid"
+                  code:
+                    type: string
+                  message:
+                    type: string
+    FirstTouchRequest:
+      type: object
+      additionalProperties: false
+      required: [occurred_at]
+      properties:
+        occurred_at:
+          type: string
+          format: date-time
+        channel:
+          type:
+            - string
+            - "null"
+    ChangeStageRequest:
+      type: object
+      additionalProperties: false
+      required: [pipeline_stage, reason_code]
+      properties:
+        pipeline_stage:
+          $ref: "#/components/schemas/PipelineStage"
+        reason_code:
+          type: string
+        reason_text:
+          type:
+            - string
+            - "null"
+    AdoptedIcpEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/IcpSummary"
+    AdoptedScaleEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/ScaleSummary"
+    CompanyPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+        website:
+          type:
+            - string
+            - "null"
+        industry:
+          type:
+            - string
+            - "null"
+        region_code:
+          anyOf:
+            - $ref: "#/components/schemas/RegionCode"
+            - type: "null"
+    CompanyEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/CompanySummary"
+    ContactInput:
+      type: object
+      additionalProperties: false
+      properties:
+        full_name:
+          type: string
+        title:
+          type:
+            - string
+            - "null"
+        email:
+          type:
+            - string
+            - "null"
+          format: email
+        phone:
+          type:
+            - string
+            - "null"
+        employment_status:
+          type: string
+          enum: [unknown, active, departed]
+          default: unknown
+        legal_basis_status:
+          type: string
+          enum: [unknown, allowed, blocked]
+          default: unknown
+        last_verified_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    ContactSummary:
+      type: object
+      required: [contact_id, full_name]
+      properties:
+        contact_id:
+          $ref: "#/components/schemas/Uuid"
+        full_name:
+          type: string
+        title:
+          type:
+            - string
+            - "null"
+        email:
+          type:
+            - string
+            - "null"
+        phone:
+          type:
+            - string
+            - "null"
+        employment_status:
+          type: string
+          enum: [unknown, active, departed]
+        legal_basis_status:
+          type: string
+          enum: [unknown, allowed, blocked]
+        last_verified_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        version:
+          type: integer
+    ContactEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/ContactSummary"
+    ContactListEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactSummary"
+    ContactRosterMutationRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [activate, backup, pin, unpin, move]
+        position:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 5
+        replace_contact_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        reason:
+          type:
+            - string
+            - "null"
+          maxLength: 1000
+    OutreachResumeRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    ContactRosterEntry:
+      type: object
+      required:
+        - contact_id
+        - company_id
+        - full_name
+        - role_group
+        - priority_score
+        - recommendation_reason
+        - is_pinned
+        - engagement_locked
+      properties:
+        contact_id:
+          $ref: "#/components/schemas/Uuid"
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        full_name:
+          type: string
+        title:
+          type:
+            - string
+            - "null"
+        department:
+          type:
+            - string
+            - "null"
+        primary_email:
+          type:
+            - string
+            - "null"
+          format: email
+        email_status:
+          type: string
+        employment_status:
+          type: string
+          enum: [unknown, active, departed]
+        legal_basis_status:
+          type: string
+          enum: [unknown, allowed, blocked]
+        roster_status:
+          type:
+            - string
+            - "null"
+          enum: [active, backup, null]
+        position:
+          type:
+            - integer
+            - "null"
+          minimum: 1
+          maximum: 5
+        role_group:
+          type: string
+        priority_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        score_breakdown:
+          type: object
+          additionalProperties:
+            type: number
+        recommendation_reason:
+          type: string
+        is_pinned:
+          type: boolean
+        engagement_locked:
+          type: boolean
+        outreach_status:
+          type: string
+        last_engagement_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        override_reason:
+          type:
+            - string
+            - "null"
+        blocked_reason:
+          type:
+            - string
+            - "null"
+    CompanyOutreachState:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [active, paused]
+        pause_reason:
+          type:
+            - string
+            - "null"
+        paused_contact_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        source_email_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        paused_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        resumed_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        resume_reason:
+          type:
+            - string
+            - "null"
+        version:
+          type: integer
+          minimum: 0
+    ContactRoster:
+      type: object
+      required: [company_id, initialized, active, backup, total, limit, ranking_version, outreach]
+      properties:
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        initialized:
+          type: boolean
+        active:
+          type: array
+          maxItems: 5
+          items:
+            $ref: "#/components/schemas/ContactRosterEntry"
+        backup:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactRosterEntry"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          const: 5
+        ranking_version:
+          type: string
+        outreach:
+          $ref: "#/components/schemas/CompanyOutreachState"
+    ContactRosterEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/ContactRoster"
+    CustomerProfilePatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        company_summary:
+          type:
+            - string
+            - "null"
+        business_model:
+          type:
+            - string
+            - "null"
+        geography_note:
+          type:
+            - string
+            - "null"
+        company_type:
+          type: [string, "null"]
+        region_text:
+          type: [string, "null"]
+        employee_scale:
+          type: [string, "null"]
+        esim_scenario:
+          type: [string, "null"]
+        coverage:
+          type: [string, "null"]
+        estimated_usage:
+          type: [string, "null"]
+        integration:
+          type: [string, "null"]
+        compliance:
+          type: [string, "null"]
+        budget_text:
+          type: [string, "null"]
+        decision_maker_text:
+          type: [string, "null"]
+        decision_maker_contact_id:
+          oneOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        decision_cycle_text:
+          type: [string, "null"]
+    CustomerProfileEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [company_id, profile_version]
+          properties:
+            company_id:
+              $ref: "#/components/schemas/Uuid"
+            company_summary:
+              type:
+                - string
+                - "null"
+            business_model:
+              type:
+                - string
+                - "null"
+            geography_note:
+              type:
+                - string
+                - "null"
+            profile_version:
+              type: integer
+    MeddpiccUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [unknown, partial, confirmed, rejected]
+        summary:
+          type:
+            - string
+            - "null"
+        research_meta:
+          type: object
+          additionalProperties: true
+        evidence_refs:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        evidence_summary:
+          type: object
+          additionalProperties: true
+        payload:
+          type:
+            - object
+            - "null"
+          additionalProperties: true
+    MeddpiccEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [company_id, dimensions]
+          properties:
+            company_id:
+              $ref: "#/components/schemas/Uuid"
+            dimensions:
+              type: array
+              items:
+                type: object
+                required: [dimension_code, status]
+                properties:
+                  dimension_code:
+                    type: string
+                  status:
+                    type: string
+                  summary:
+                    type:
+                      - string
+                      - "null"
+    AnalysisRunCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [report_type, force_refresh, trigger_type]
+      properties:
+        report_type:
+          type: string
+          const: customer_analysis
+        force_refresh:
+          type: boolean
+        trigger_type:
+          type: string
+          enum: [manual, pool_entry, assignment, operation, schedule, migration]
+    AnalysisRunEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required:
+            - run_id
+            - company_id
+            - status
+            - report_type
+            - trigger_type
+            - research_mode
+            - external_research_allowed
+          properties:
+            run_id:
+              $ref: "#/components/schemas/Uuid"
+            company_id:
+              $ref: "#/components/schemas/Uuid"
+            status:
+              $ref: "#/components/schemas/JobStatus"
+            report_type:
+              type: string
+              const: customer_analysis
+            trigger_type:
+              type: string
+              enum: [manual, pool_entry, assignment, operation, schedule, migration]
+            research_mode:
+              type: string
+              enum: [initial_external, internal_only]
+            external_research_allowed:
+              type: boolean
+            trigger_context:
+              type: object
+              additionalProperties: true
+            current_job_id:
+              anyOf:
+                - $ref: "#/components/schemas/Uuid"
+                - type: "null"
+            report_id:
+              anyOf:
+                - $ref: "#/components/schemas/Uuid"
+                - type: "null"
+    AnalysisReportSummary:
+      type: object
+      required: [report_id, company_id, generated_at]
+      properties:
+        report_id:
+          $ref: "#/components/schemas/Uuid"
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        generated_at:
+          type: string
+          format: date-time
+        sales_guide:
+          type:
+            - string
+            - "null"
+        summary:
+          type:
+            - string
+            - "null"
+    AnalysisReportEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/AnalysisReportSummary"
+    AnalysisReportListEnvelope:
+      type: object
+      required: [request_id, data, page]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalysisReportSummary"
+        page:
+          $ref: "#/components/schemas/PageMeta"
+    AnalysisSuggestionSummary:
+      type: object
+      required: [suggestion_id, company_id, status]
+      properties:
+        suggestion_id:
+          $ref: "#/components/schemas/Uuid"
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        status:
+          type: string
+          enum: [pending, accepted, rejected]
+        summary:
+          type: string
+        version:
+          type: integer
+    AnalysisSuggestionListEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalysisSuggestionSummary"
+    AnalysisSuggestionCommandEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [suggestion_id, status, version]
+          properties:
+            suggestion_id:
+              $ref: "#/components/schemas/Uuid"
+            status:
+              type: string
+            version:
+              type: integer
+    CoreFieldCatalogEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [version, profile_field_count, core_field_count, groups]
+          properties:
+            version:
+              type: string
+            profile_field_count:
+              type: integer
+              const: 13
+            core_field_count:
+              type: integer
+              const: 17
+            groups:
+              type: array
+              items:
+                type: object
+                required: [id, label, fields]
+                properties:
+                  id:
+                    type: string
+                  label:
+                    type: string
+                  fields:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, label, target_type, collection_method, missing_guidance]
+                      properties:
+                        id:
+                          type: string
+                        label:
+                          type: string
+                        target_type:
+                          type: string
+                          enum: [profile, meddpicc]
+                        collection_method:
+                          type: string
+                          enum: [public_or_internal, sales_confirmation]
+                        missing_guidance:
+                          type: string
+    CoreFieldsEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [catalog_version, company_id, confirmed_profile_completeness, candidate_coverage, fields]
+          properties:
+            catalog_version:
+              type: string
+            company_id:
+              $ref: "#/components/schemas/Uuid"
+            confirmed_profile_completeness:
+              type: number
+              minimum: 0
+              maximum: 1
+            candidate_coverage:
+              type: number
+              minimum: 0
+              maximum: 1
+            fields:
+              type: array
+              items:
+                type: object
+                required: [group_id, field_id, label, target_type, status, collection_method, missing_guidance]
+                properties:
+                  group_id:
+                    type: string
+                  field_id:
+                    type: string
+                  label:
+                    type: string
+                  target_type:
+                    type: string
+                    enum: [profile, meddpicc]
+                  collection_method:
+                    type: string
+                    enum: [public_or_internal, sales_confirmation]
+                  missing_guidance:
+                    type: string
+                  value: {}
+                  status:
+                    type: string
+                  candidate:
+                    oneOf:
+                      - $ref: "#/components/schemas/AnalysisSuggestionSummary"
+                      - type: "null"
+                  provenance:
+                    type: object
+    SuggestionBatchReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [profile_version, items]
+      properties:
+        profile_version:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [suggestion_id, suggestion_version, action]
+            properties:
+              suggestion_id:
+                $ref: "#/components/schemas/Uuid"
+              suggestion_version:
+                type: integer
+                minimum: 0
+              action:
+                type: string
+                enum: [accept, keep_original, edit]
+              edited_value: {}
+              review_note:
+                type: [string, "null"]
+    SuggestionBatchReviewEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [profile, suggestions]
+          properties:
+            profile:
+              type: object
+            suggestions:
+              type: array
+              items:
+                $ref: "#/components/schemas/AnalysisSuggestionSummary"
+    TimelineItem:
+      type: object
+      required: [timeline_id, item_type, occurred_at]
+      properties:
+        timeline_id:
+          $ref: "#/components/schemas/Uuid"
+        item_type:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        summary:
+          type: string
+    TimelineEnvelope:
+      type: object
+      required: [request_id, data, page]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineItem"
+        page:
+          $ref: "#/components/schemas/PageMeta"
+    EmailMessageSummary:
+      type: object
+      required: [email_id, company_id, status]
+      properties:
+        email_id:
+          $ref: "#/components/schemas/Uuid"
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        status:
+          type: string
+          enum: [draft, approved, queued, sent, failed]
+        subject:
+          type:
+            - string
+            - "null"
+        version:
+          type: integer
+    EmailMessageEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          allOf:
+            - $ref: "#/components/schemas/EmailMessageSummary"
+            - type: object
+              properties:
+                body_text:
+                  type:
+                    - string
+                    - "null"
+                body_html:
+                  type:
+                    - string
+                    - "null"
+    EmailMessageListEnvelope:
+      type: object
+      required: [request_id, data, page]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmailMessageSummary"
+        page:
+          $ref: "#/components/schemas/PageMeta"
+    CustomerOperationEmailDraftAttachment:
+      type: object
+      required: [attachment_id, filename, content_type, size_bytes, download_url]
+      properties:
+        attachment_id:
+          $ref: "#/components/schemas/Uuid"
+        filename:
+          type: string
+        content_type:
+          type: string
+        size_bytes:
+          type: integer
+          minimum: 0
+        download_url:
+          type: string
+    CustomerOperationEmailDraft:
+      type: object
+      required: [email_id, company_id, contact_id, purpose, status, subject, body_text, version, attachments]
+      properties:
+        email_id:
+          $ref: "#/components/schemas/Uuid"
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        contact_id:
+          $ref: "#/components/schemas/Uuid"
+        parent_email_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        purpose:
+          type: string
+          enum: [first_touch, reply_followup, meeting_followup]
+        status:
+          type: string
+          const: draft
+        recipient_email:
+          type: string
+          format: email
+        contact_name:
+          type: string
+        subject:
+          type: string
+        body_text:
+          type: string
+        version:
+          type: integer
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerOperationEmailDraftAttachment"
+    CustomerOperationEmailDraftSaveRequest:
+      type: object
+      required: [contactId, subject, body, purpose]
+      properties:
+        contactId:
+          $ref: "#/components/schemas/Uuid"
+        parentEmailId:
+          $ref: "#/components/schemas/Uuid"
+        subject:
+          type: string
+        body:
+          type: string
+        purpose:
+          type: string
+          enum: [first_touch, reply_followup, meeting_followup]
+        attachments:
+          type: array
+          items:
+            type: string
+            format: binary
+          description: Files are persisted immediately; configured per-file and per-message byte limits apply.
+    CustomerOperationEmailDraftEnvelope:
+      type: object
+      required: [success, item]
+      properties:
+        success:
+          type: boolean
+          const: true
+        item:
+          $ref: "#/components/schemas/CustomerOperationEmailDraft"
+    CustomerOperationEmailDraftListEnvelope:
+      type: object
+      required: [success, items]
+      properties:
+        success:
+          type: boolean
+          const: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomerOperationEmailDraft"
+    EmailDraftCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [lead_id]
+      properties:
+        lead_id:
+          $ref: "#/components/schemas/Uuid"
+        contact_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        language:
+          type:
+            - string
+            - "null"
+    EmailAgentRequest:
+      type: object
+      additionalProperties: false
+      required: [companyId, contactId, operation]
+      properties:
+        companyId:
+          $ref: "#/components/schemas/Uuid"
+        contactId:
+          $ref: "#/components/schemas/Uuid"
+        subject:
+          type: string
+        body:
+          type: string
+        instruction:
+          type: string
+        operation:
+          type: string
+          enum: [generate, optimize, translate, rewrite]
+        targetLanguage:
+          type: string
+          enum: [ja, en, fr, de, es, zh]
+    EmailAgentResult:
+      type: object
+      additionalProperties: false
+      required: [success, agent, operation, subject, body, skills, changes, model, message]
+      properties:
+        success:
+          type: boolean
+          const: true
+        agent:
+          type: string
+          const: email-agent
+        operation:
+          type: string
+          enum: [generate, optimize, translate, rewrite]
+        subject:
+          type: string
+        body:
+          type: string
+        language:
+          type:
+            - string
+            - "null"
+        skills:
+          type: array
+          items:
+            type: string
+        changes:
+          type: array
+          items:
+            type: string
+        model:
+          type: string
+        message:
+          type: string
+    EmailDraftPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        subject:
+          type:
+            - string
+            - "null"
+        body_text:
+          type:
+            - string
+            - "null"
+        body_html:
+          type:
+            - string
+            - "null"
+    EmailTranslateRequest:
+      type: object
+      additionalProperties: false
+      required: [target_language]
+      properties:
+        target_language:
+          type: string
+    EmailApproveRequest:
+      type: object
+      additionalProperties: false
+      required: [approved]
+      properties:
+        approved:
+          type: boolean
+        note:
+          type:
+            - string
+            - "null"
+    EmailSendRequest:
+      type: object
+      additionalProperties: false
+      required: [provider_name]
+      properties:
+        provider_name:
+          type: string
+          enum: [microsoft_graph, gmail]
+    MeetingUploadRequest:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+        lead_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        primary_contact_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        title:
+          type:
+            - string
+            - "null"
+        meeting_started_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+    MeetingSummary:
+      type: object
+      required: [core_summary, customer_needs, pain_points, buying_signals, action_items, decisions, risks, keywords, next_step]
+      properties:
+        core_summary:
+          type:
+            - string
+            - "null"
+        customer_needs:
+          type: array
+          items:
+            type: string
+        pain_points:
+          type: array
+          items:
+            type: string
+        buying_signals:
+          type: array
+          items:
+            type: string
+        action_items:
+          type: array
+          items:
+            type: object
+            required: [task]
+            properties:
+              task:
+                type: string
+              owner:
+                type:
+                  - string
+                  - "null"
+              due_at:
+                type:
+                  - string
+                  - "null"
+                format: date-time
+        decisions:
+          type: array
+          items:
+            type: string
+        risks:
+          type: array
+          items:
+            type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        next_step:
+          type:
+            - string
+            - "null"
+    MeetingSummaryRecord:
+      type: object
+      required: [meeting_id, company_id, processing_status, summary_schema_version, version]
+      properties:
+        meeting_id:
+          $ref: "#/components/schemas/Uuid"
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        lead_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        processing_status:
+          type: string
+          enum: [queued, running, completed, failed, cancelled]
+        transcript_status:
+          type:
+            - string
+            - "null"
+        transcript_text:
+          type:
+            - string
+            - "null"
+        summary_schema_version:
+          type: integer
+          const: 1
+        summary:
+          anyOf:
+            - $ref: "#/components/schemas/MeetingSummary"
+            - type: "null"
+        version:
+          type: integer
+    MeetingEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/MeetingSummaryRecord"
+    MeetingListEnvelope:
+      type: object
+      required: [request_id, data, page]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MeetingSummaryRecord"
+        page:
+          $ref: "#/components/schemas/PageMeta"
+    MeetingSegmentListEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            type: object
+            required: [segment_id, started_at, ended_at, text]
+            properties:
+              segment_id:
+                $ref: "#/components/schemas/Uuid"
+              started_at:
+                type: string
+                format: date-time
+              ended_at:
+                type: string
+                format: date-time
+              text:
+                type: string
+    MeetingMediaEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [url, expires_at]
+          properties:
+            url:
+              type: string
+            expires_at:
+              type: string
+              format: date-time
+    FollowUpTaskSummary:
+      type: object
+      required: [task_id, company_id, status, title, version]
+      properties:
+        task_id:
+          $ref: "#/components/schemas/Uuid"
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        lead_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        title:
+          type: string
+        due_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        status:
+          type: string
+          enum: [open, completed, cancelled]
+        version:
+          type: integer
+    FollowUpTaskCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        lead_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        title:
+          type: string
+        due_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        note:
+          type:
+            - string
+            - "null"
+    FollowUpTaskPatchRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title:
+          type: string
+        due_at:
+          type:
+            - string
+            - "null"
+          format: date-time
+        note:
+          type:
+            - string
+            - "null"
+    FollowUpTaskEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/FollowUpTaskSummary"
+    FollowUpTaskListEnvelope:
+      type: object
+      required: [request_id, data, page]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/FollowUpTaskSummary"
+        page:
+          $ref: "#/components/schemas/PageMeta"
+    ActivityCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [activity_type, occurred_at]
+      properties:
+        lead_id:
+          anyOf:
+            - $ref: "#/components/schemas/Uuid"
+            - type: "null"
+        activity_type:
+          type: string
+          enum: [call, note, proposal, demo, system, other]
+        direction:
+          type:
+            - string
+            - "null"
+          enum: [inbound, outbound, internal, null]
+        subject:
+          type:
+            - string
+            - "null"
+        body:
+          type:
+            - string
+            - "null"
+        outcome_code:
+          type:
+            - string
+            - "null"
+        occurred_at:
+          type: string
+          format: date-time
+    ActivityEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [activity_id, company_id, activity_type, occurred_at]
+          properties:
+            activity_id:
+              $ref: "#/components/schemas/Uuid"
+            company_id:
+              $ref: "#/components/schemas/Uuid"
+            lead_id:
+              anyOf:
+                - $ref: "#/components/schemas/Uuid"
+                - type: "null"
+            activity_type:
+              type: string
+            occurred_at:
+              type: string
+              format: date-time
+    ManualNoteCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [raw_text]
+      properties:
+        raw_text:
+          type: string
+          minLength: 1
+    ManualNoteFieldDecision:
+      type: object
+      additionalProperties: false
+      required: [index, action]
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        action:
+          type: string
+          enum: [accept, keep_original, edit]
+        edited_value:
+          type:
+            - string
+            - number
+            - boolean
+            - object
+            - array
+            - "null"
+    ManualNoteConfirmRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmed_fields]
+      properties:
+        confirmed_fields:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ManualNoteFieldDecision"
+    ManualNoteRecord:
+      type: object
+      required: [note_id, company_id, extraction_status, raw_text, version]
+      properties:
+        note_id:
+          $ref: "#/components/schemas/Uuid"
+        company_id:
+          $ref: "#/components/schemas/Uuid"
+        extraction_status:
+          type: string
+          enum: [queued, running, extracted, confirmed, discarded, failed]
+        raw_text:
+          type: string
+        extracted_fields:
+          type: array
+          items:
+            type: object
+            required: [index, field_name, proposed_value]
+            properties:
+              index:
+                type: integer
+              field_name:
+                type: string
+              proposed_value:
+                type:
+                  - string
+                  - number
+                  - boolean
+                  - object
+                  - array
+                  - "null"
+        version:
+          type: integer
+    ManualNoteEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          $ref: "#/components/schemas/ManualNoteRecord"
+    ManualNoteListEnvelope:
+      type: object
+      required: [request_id, data, page]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ManualNoteRecord"
+        page:
+          $ref: "#/components/schemas/PageMeta"
+    JobEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [job_id, aggregate_type, aggregate_id, status]
+          properties:
+            job_id:
+              $ref: "#/components/schemas/Uuid"
+            aggregate_type:
+              type: string
+            aggregate_id:
+              $ref: "#/components/schemas/Uuid"
+            status:
+              $ref: "#/components/schemas/JobStatus"
+            progress_percent:
+              type: number
+            concurrency_key:
+              type:
+                - string
+                - "null"
+            retry_of_job_id:
+              anyOf:
+                - $ref: "#/components/schemas/Uuid"
+                - type: "null"
+    JobCommandEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [resource_type, resource_id, previous_job_id, current_job_id, status]
+          properties:
+            resource_type:
+              type: string
+            resource_id:
+              $ref: "#/components/schemas/Uuid"
+            previous_job_id:
+              $ref: "#/components/schemas/Uuid"
+            current_job_id:
+              $ref: "#/components/schemas/Uuid"
+            status:
+              $ref: "#/components/schemas/JobStatus"
+    SalesWorkspaceEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          properties:
+            my_open_lead_count:
+              type: integer
+            claimable_pool_count:
+              type: integer
+            overdue_sla_count:
+              type: integer
+    StrategicWorkspaceEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          properties:
+            claimable_pool_count:
+              type: integer
+            region_unknown_count:
+              type: integer
+            scale_unknown_count:
+              type: integer
+            departed_user_count:
+              type: integer
+    DashboardEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+    Customer360Envelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          properties:
+            company:
+              $ref: "#/components/schemas/CompanySummary"
+            sales_lead:
+              anyOf:
+                - $ref: "#/components/schemas/SalesLeadSummary"
+                - type: "null"
+            current_profile:
+              anyOf:
+                - $ref: "#/components/schemas/CustomerProfileEnvelope"
+                - type: "null"
+    KnowledgeSearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        knowledge_base_ids:
+          type:
+            - array
+            - "null"
+          maxItems: 20
+          items:
+            type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
+    KnowledgeSearchItem:
+      type: object
+      required: [id, content, metadata]
+      properties:
+        id:
+          type: string
+        content:
+          type: string
+        knowledge_id:
+          type:
+            - string
+            - "null"
+        knowledge_title:
+          type:
+            - string
+            - "null"
+        knowledge_filename:
+          type:
+            - string
+            - "null"
+        knowledge_source:
+          type:
+            - string
+            - "null"
+        score:
+          type:
+            - number
+            - "null"
+        metadata:
+          type: object
+          additionalProperties: true
+    KnowledgeSearchEnvelope:
+      type: object
+      required: [request_id, data]
+      properties:
+        request_id:
+          type: string
+        data:
+          type: object
+          required: [query, items, knowledge_base_ids]
+          properties:
+            query:
+              type: string
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/KnowledgeSearchItem"
+            knowledge_base_ids:
+              type: array
+              items:
+                type: string

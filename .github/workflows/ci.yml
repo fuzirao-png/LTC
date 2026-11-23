@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  v36-foundation:
+    name: v3.6 Docker Foundation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Compose model
+        run: docker compose config --quiet
+      - name: Run v3.6 acceptance suite in Docker
+        run: make test
+

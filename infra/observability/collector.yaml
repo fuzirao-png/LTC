@@ -1,0 +1,56 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+  tail_sampling:
+    decision_wait: ${env:LTC_TRACE_DECISION_WAIT:-20m}
+    num_traces: 100000
+    decision_cache:
+      sampled_cache_size: 100000
+      non_sampled_cache_size: 100000
+    policies:
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: slow
+        type: latency
+        latency:
+          threshold_ms: ${env:LTC_TRACE_SLOW_MS:-3000}
+      - name: baseline
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 5
+  batch: {}
+
+exporters:
+  file/traces:
+    path: /data/traces.jsonl
+    rotation:
+      max_megabytes: 100
+      max_backups: 10
+      max_days: 7
+  file/metrics:
+    path: /data/metrics.jsonl
+    rotation:
+      max_megabytes: 50
+      max_backups: 5
+      max_days: 7
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, tail_sampling, batch]
+      exporters: [file/traces]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [file/metrics]

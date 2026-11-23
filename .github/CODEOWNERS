@@ -1,0 +1,18 @@
+# Architecture & database — requires review from the architecture owner
+docs/architecture/                          @qxiaoxiao1201-lang
+db/migrations/                              @qxiaoxiao1201-lang
+contracts/openapi/                          @qxiaoxiao1201-lang
+contracts/v3.6.sha256                       @qxiaoxiao1201-lang
+tests/contract/                             @qxiaoxiao1201-lang
+tests/integration/                          @qxiaoxiao1201-lang
+apps/api/src/ltc/modules/registry.py        @qxiaoxiao1201-lang
+scripts/                                    @qxiaoxiao1201-lang
+compose.yaml                                @qxiaoxiao1201-lang
+Makefile                                    @qxiaoxiao1201-lang
+
+# Module owners (replace with actual team members)
+# apps/api/src/ltc/modules/iam/             @iam-owner
+# apps/api/src/ltc/modules/lead_intelligence/ @lead-owner
+# apps/api/src/ltc/modules/sales_crm/       @crm-owner
+# apps/api/src/ltc/modules/customer_analysis/ @analysis-owner
+# apps/api/src/ltc/modules/customer_operation/ @operations-owner
